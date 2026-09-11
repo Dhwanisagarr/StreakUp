@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "StreakUp"
+version = "1.0.0"
+id = "artifacts/streakup"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22411
+
+[services.development]
+run = "pnpm --filter @workspace/streakup run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/streakup", "run", "build" ]
+publicDir = "artifacts/streakup/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22411"
+BASE_PATH = "/"

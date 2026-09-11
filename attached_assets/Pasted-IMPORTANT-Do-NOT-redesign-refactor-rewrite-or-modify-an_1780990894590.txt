@@ -1,0 +1,180 @@
+IMPORTANT: Do NOT redesign, refactor, rewrite, or modify any existing functionality of the StreakUp application. Keep all current features exactly as they are. Do not change the existing UI theme, streak logic, challenge logic, local storage structure, navigation, or layouts unless explicitly required for this addition.
+
+I want you to ADD a completely new feature called "Notes" to the existing StreakUp application.
+
+The Notes feature should work like a simplified version of Notion integrated inside StreakUp.
+
+Requirements:
+
+1. Add a new tab in the bottom navigation bar called "Notes" with an appropriate icon.
+
+2. The Notes section should be completely independent from the streak tracking functionality.
+
+3. Users should be able to create UNLIMITED notes.
+
+4. Each note should act like its own page.
+
+Examples of notes:
+
+* Motion Graphics Resources
+* Drawing Practice Ideas
+* Games to Explore
+* Python Learning Resources
+* Book Recommendations
+* Content Ideas
+* Interview Preparation Notes
+
+5. The Notes screen should display all created notes as clean cards in a list or grid layout.
+
+Each note card should show:
+
+* Note title
+* Date created
+* Last updated date
+* Small preview of the content
+
+6. There should be a floating "+ New Note" button.
+
+7. When users click "New Note", open a full-screen editor or bottom sheet editor.
+
+The editor should include:
+
+* Note Title field
+* Large content area
+* Auto-save functionality
+* Save button
+* Cancel button
+
+8. The content area should support writing plain text naturally.
+
+Users should be able to write things such as:
+
+Motion Graphics
+
+* Learn After Effects basics
+* Study transitions
+* Practice kinetic typography
+
+Useful Links:
+https://example.com
+https://example2.com
+
+Notes:
+Need to practice daily.
+
+9. Users should be able to paste links directly into the notes.
+
+Links should automatically become clickable.
+
+10. Users should be able to edit notes at any time.
+
+11. Users should be able to delete notes with a confirmation popup.
+
+Example confirmation:
+
+"Delete this note? This action cannot be undone."
+
+12. Users should be able to duplicate a note.
+
+Example:
+
+Original:
+"Motion Graphics Resources"
+
+Duplicate:
+"Motion Graphics Resources (Copy)"
+
+13. Users should be able to search notes by title.
+
+Add a search bar at the top of the Notes screen.
+
+14. Store all notes using browser Local Storage.
+
+IMPORTANT:
+
+Do NOT use databases.
+Do NOT use authentication.
+Do NOT use backend APIs.
+
+The notes must persist even after browser refresh.
+
+15. Suggested Local Storage structure:
+
+notes = [
+{
+id,
+title,
+content,
+createdAt,
+updatedAt
+}
+]
+
+16. The Notes feature should feel like a lightweight personal knowledge base inside StreakUp.
+
+Users should be able to organize different learning topics such as:
+
+Motion Graphics:
+
+* Tutorials
+* Links
+* Practice plans
+
+Drawing:
+
+* References
+* Techniques
+* Daily exercises
+
+Games:
+
+* Recommendations
+* Reviews
+* Things to try
+
+Career:
+
+* Interview questions
+* Study resources
+* Important notes
+
+17. The design should match the existing StreakUp aesthetic perfectly.
+
+Maintain:
+
+* White background
+* Soft yellow accents
+* Rounded corners
+* Clean cards
+* Minimal interface
+* Apple-inspired simplicity
+
+18. Add a beautiful empty state when no notes exist.
+
+Example message:
+
+"Your ideas deserve a home. Create your first note."
+
+19. The Notes section should be fast and distraction-free.
+
+The experience should feel similar to a simplified version of Notion, Apple Notes, and Google Keep combined.
+
+20. Most importantly:
+
+DO NOT CHANGE OR BREAK ANY EXISTING FUNCTIONALITY.
+
+The following existing features must continue working exactly as before:
+
+* Challenge creation
+* Streak tracking
+* Daily check-ins
+* Templates
+* Statistics
+* Badges
+* Local storage persistence
+* Progress tracking
+* Challenge editing and deletion
+
+This task is ONLY to ADD the Notes feature while preserving the entire current StreakUp experience.
+
+Generate all components, local storage logic, navigation updates, styling, state management, and note editor functionality required to fully implement this feature.

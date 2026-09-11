@@ -1,0 +1,104 @@
+IMPORTANT: This is a feature enhancement request. Do NOT redesign the UI or modify existing functionality except where required.
+
+Currently, a challenge day is marked as completed only when ALL habits are completed.
+
+I want to improve this logic because in real life users may complete most habits but miss one or two tasks.
+
+NEW REQUIREMENT:
+
+Each challenge should have a configurable "Daily Completion Rule."
+
+During challenge creation and editing, add a new field called:
+
+"Daily Completion Requirement"
+
+Options:
+
+* 100% (all habits)
+* 75% of habits
+* 50% of habits
+* Custom percentage
+
+The selected percentage determines whether the day counts toward the streak.
+
+Examples:
+
+Challenge:
+66-Day Coding Challenge
+
+Habits:
+
+* Code for 1 hour
+* Push to GitHub
+* Read documentation
+* Solve one problem
+
+Rule:
+50%
+
+Result:
+
+If the user completes 2 out of 4 habits (50%), then:
+
+✓ The day counts as completed.
+✓ The streak continues.
+✓ Challenge progress increases.
+
+If the user completes less than 50%, then:
+
+✗ The day does not count toward the streak.
+
+ANALYTICS REQUIREMENTS:
+
+Inside each individual challenge, add detailed analytics showing:
+
+* Current streak
+* Longest streak
+* Total days completed
+* Completion percentage
+
+For EACH habit show:
+
+Habit name
+
+Days completed
+
+Percentage completed
+
+Example:
+
+Code 1 hour:
+58/66 days (88%)
+
+Push to GitHub:
+42/66 days (64%)
+
+Read documentation:
+20/66 days (30%)
+
+Solve problems:
+50/66 days (76%)
+
+CALENDAR REQUIREMENTS:
+
+Use different colors:
+
+Dark Green = 100% habits completed
+
+Light Green = Completion threshold achieved
+
+Yellow = Partial completion but threshold not met
+
+Red = No habits completed
+
+Maintain all existing functionality.
+
+Do NOT remove the current strict completion option.
+
+The user should be able to choose whether they want strict challenges or flexible challenges.
+
+Store all new data using the existing Local Storage approach.
+
+Ensure existing challenges continue to work by defaulting their completion rule to 100%.
+
+Implement this enhancement without changing the overall StreakUp design language.

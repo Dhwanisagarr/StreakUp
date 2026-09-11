@@ -1,0 +1,133 @@
+IMPORTANT: This is a bug fix request. Do NOT redesign, refactor, or modify any existing functionality of the StreakUp application except for the issues mentioned below.
+
+The Notes feature is mostly working, but there are two problems that need to be fixed.
+
+────────────────────
+ISSUE 1: DUPLICATE NOTES
+────────────────────
+
+Currently, when I create a new note, it is sometimes being added twice.
+
+Example:
+
+I create one note called:
+
+"Motion Graphics"
+
+Expected Result:
+Only ONE "Motion Graphics" note card should appear.
+
+Current Result:
+Two identical "Motion Graphics" note cards appear.
+
+Requirements:
+
+* Ensure that clicking the "Save" button creates ONLY ONE note.
+* Prevent accidental double insertion caused by:
+
+  * multiple state updates,
+  * duplicate event handlers,
+  * React Strict Mode re-rendering,
+  * form submission firing twice.
+* Verify that the note creation function executes exactly once per user action.
+* Ensure Local Storage only receives one entry per note.
+* Do not remove existing notes from Local Storage unless they are true duplicates.
+
+Additionally:
+
+On application startup, run a duplicate cleanup process that removes duplicate notes based on identical:
+
+* title,
+* content,
+* createdAt timestamp.
+
+Only keep one copy of duplicated notes.
+
+────────────────────
+ISSUE 2: CLICKABLE LINKS INSIDE NOTES
+────────────────────
+
+Currently, links inside notes are displayed as plain text.
+
+Example:
+
+https://www.youtube.com/watch?v=ROQpz8vp4xk
+
+Expected Result:
+
+The link should automatically become clickable.
+
+Requirements:
+
+* Detect URLs written inside notes.
+* Render them as clickable anchor elements.
+* Clicking a link should open it in a NEW browser tab.
+* Use:
+
+target="_blank"
+rel="noopener noreferrer"
+
+for security.
+
+Supported formats:
+
+https://example.com
+
+http://example.com
+
+[www.example.com](http://www.example.com)
+
+YouTube links
+
+Course links
+
+Documentation links
+
+Users should still be able to freely type normal text around links.
+
+Example:
+
+Motion Graphics Resources
+
+YouTube:
+https://www.youtube.com/watch?v=abc123
+
+Practice:
+Study transitions.
+
+Expected Display:
+
+Motion Graphics Resources
+
+YouTube:
+[Clickable YouTube Link]
+
+Practice:
+Study transitions.
+
+────────────────────
+ADDITIONAL REQUIREMENTS
+────────────────────
+
+* Do NOT change the existing Notes UI.
+* Do NOT redesign the cards.
+* Do NOT modify the streak tracking system.
+* Do NOT modify challenges.
+* Do NOT modify statistics.
+* Do NOT modify templates.
+* Do NOT modify local storage structures except what is required for fixing duplicates.
+* Preserve all existing functionality.
+
+Only fix these two issues:
+
+1. Duplicate note creation.
+2. Automatic clickable links inside notes.
+
+After implementing the fixes, verify that:
+
+* creating a note once results in exactly one card,
+* editing a note updates the existing note rather than creating another copy,
+* deleting a note still works,
+* links are clickable and open correctly.
+
+Return only the minimal code changes required to implement these fixes safely without affecting the rest of the StreakUp application.

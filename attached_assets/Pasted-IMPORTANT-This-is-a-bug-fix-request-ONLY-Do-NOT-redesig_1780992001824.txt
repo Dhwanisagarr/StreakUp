@@ -1,0 +1,140 @@
+IMPORTANT: This is a bug-fix request ONLY. Do NOT redesign, refactor, or modify any other part of the StreakUp application.
+
+Do NOT change:
+
+* Streak functionality
+* Challenge functionality
+* Statistics
+* Templates
+* Existing Notes UI styling
+* Local Storage structure
+* Navigation
+
+Only fix the following two Notes-related issues.
+
+──────────────────────────────
+BUG 1: THREE-DOTS MENU OVERLAPPING
+──────────────────────────────
+
+Current problem:
+
+When the user clicks the three-dot menu (⋯) on a note card, the dropdown menu appears directly on top of other note cards.
+
+This causes:
+
+* visual overlap,
+* accidental clicks,
+* messy appearance,
+* poor user experience.
+
+Expected behavior:
+
+* The dropdown menu should open OUTSIDE the note card area.
+* It should never cover the next note card.
+* The menu should always remain fully visible within the viewport.
+* Add proper z-index handling.
+* Add spacing between the menu and the card.
+* The dropdown should automatically reposition itself upward if there isn't enough space below.
+* Clicking outside the menu should close it.
+
+The Edit / Duplicate / Delete actions should continue working exactly as they do now.
+
+Do NOT remove any functionality.
+
+──────────────────────────────
+BUG 2: CLICKABLE LINKS INSIDE NOTE DETAILS
+──────────────────────────────
+
+Current behavior:
+
+Links are clickable only from the note preview card.
+
+However, when the user opens the full note view, links become plain text and cannot be clicked.
+
+Example:
+
+Motion Graphics
+
+Study this tutorial:
+https://www.youtube.com/watch?v=ROQpz8vp4xk
+
+Learn transitions:
+https://example.com
+
+Expected behavior:
+
+When the user opens the full note page:
+
+* All URLs should automatically become clickable links.
+* Clicking a link should open it in a new browser tab.
+* Links should have clear styling:
+
+  * blue text,
+  * underline on hover,
+  * pointer cursor.
+
+Use:
+
+target="_blank"
+
+and
+
+rel="noopener noreferrer"
+
+for security.
+
+The user should still be able to write large amounts of normal text.
+
+Example:
+
+Motion Graphics
+
+Today I studied animation principles.
+
+Useful Links:
+https://www.youtube.com/watch?v=abc123
+
+Things to practice tomorrow:
+
+* easing
+* anticipation
+* transitions
+
+Expected Result:
+
+Only the URL should become clickable.
+
+All other text should remain normal.
+
+──────────────────────────────
+ADDITIONAL REQUIREMENT
+──────────────────────────────
+
+Long notes should remain scrollable and readable.
+
+Users should not have to exit the note to access the links.
+
+Links should work both:
+
+1. Inside the full note editor/view page.
+2. In the preview card, if displayed there.
+
+──────────────────────────────
+FINAL REQUIREMENTS
+──────────────────────────────
+
+After implementing these fixes, verify that:
+
+✓ The three-dot menu no longer overlaps other note cards.
+
+✓ The menu closes correctly when clicking outside.
+
+✓ Links are clickable in note previews.
+
+✓ Links are clickable inside the full note view.
+
+✓ Normal text formatting remains unchanged.
+
+✓ No existing functionality is affected.
+
+Return only the minimal code changes required to safely implement these two fixes without changing any other part of the StreakUp application.
