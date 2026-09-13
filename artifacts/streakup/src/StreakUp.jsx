@@ -11,7 +11,18 @@ const fmtDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US",
 const uid = () => Math.random().toString(36).slice(2, 9);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 const LS = {
-  get: (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } },
+  get: (k, def) => {
+    try {
+      const v = localStorage.getItem(k);
+      if (v === null) return def;
+      const parsed = JSON.parse(v);
+      if (Array.isArray(def) && !Array.isArray(parsed)) return def;
+      if (typeof def === "object" && def !== null && !Array.isArray(def) && (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))) return def;
+      return parsed;
+    } catch {
+      return def;
+    }
+  },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
@@ -47,8 +58,6 @@ const BADGES = [
 
 /* ─────────────────────────────────────────────
    CHALLENGE STATS ENGINE
-   dayRecords: { [dateStr]: "completed" | "skipped" }
-   Streak only counts "completed" days consecutively.
 ───────────────────────────────────────────── */
 function calcStats(challenge, dayRecords) {
   const td = todayStr();
@@ -71,12 +80,10 @@ function calcStats(challenge, dayRecords) {
       skippedDays++;
       tempStreak = 0;
     } else {
-      // missed (past, no record)
       if (d < td) tempStreak = 0;
     }
   }
 
-  // current streak: backwards from today
   let cs = 0;
   for (let i = clamp(daysBetween(start, td), 0, totalDays - 1); i >= 0; i--) {
     const d = addDays(start, i);
@@ -97,8 +104,8 @@ function calcStats(challenge, dayRecords) {
 
 function globalStats(challenges, allRecords) {
   let totalCompleted = 0, bestStreak = 0;
-  challenges.forEach((c) => {
-    const s = calcStats(c, allRecords[c.id] || {});
+  (Array.isArray(challenges) ? challenges : []).forEach((c) => {
+    const s = calcStats(c, (allRecords && allRecords[c.id]) || {});
     totalCompleted += s.completedDays;
     bestStreak = Math.max(bestStreak, s.bestStreak);
   });
@@ -109,15 +116,15 @@ function calcHabitStats(challenge, dayRecords, habitRecords) {
   const td = todayStr();
   const perHabit = {};
   let pastDays = 0;
-  challenge.habits.forEach(h => { perHabit[h] = 0; });
+  (challenge.habits || []).forEach(h => { perHabit[h] = 0; });
   for (let i = 0; i < challenge.duration; i++) {
     const d = addDays(challenge.startDate, i);
     if (d > td) break;
     pastDays++;
     const hr = habitRecords[d];
-    challenge.habits.forEach(h => {
+    (challenge.habits || []).forEach(h => {
       if (hr) { if (hr[h]) perHabit[h]++; }
-      else if (dayRecords[d] === "completed") perHabit[h]++; // legacy: all-or-nothing days count all habits
+      else if (dayRecords[d] === "completed") perHabit[h]++;
     });
   }
   return { perHabit, pastDays };
@@ -127,9 +134,9 @@ function calcHabitStats(challenge, dayRecords, habitRecords) {
    DESIGN TOKENS
 ───────────────────────────────────────────── */
 const C = {
-  bg: "#FAFAF7",
+  bg: "#d4e7db",
   card: "#FFFFFF",
-  amber: "#F59E0B",
+  amber: "#E86F35",
   amberLight: "#FFFBEB",
   amberMid: "#FEF3C7",
   amberBorder: "#FDE68A",
@@ -137,7 +144,7 @@ const C = {
   amberDeep: "#92400E",
   text: "#111827",
   textMid: "#374151",
-  textMuted: "#9CA3AF",
+  textMuted: "#6B7280",
   textLight: "#D1D5DB",
   border: "#F0EDE8",
   borderMid: "#E5E7EB",
@@ -153,14 +160,14 @@ const C = {
   blueLight: "#EFF6FF",
 };
 
-const font = "'DM Sans', 'Helvetica Neue', sans-serif";
+const font = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 
 /* ─────────────────────────────────────────────
    SMALL SHARED COMPONENTS
 ───────────────────────────────────────────── */
-function Pill({ children, color = C.amber, bg = C.amberLight, border = C.amberBorder, style }) {
+function Pill({ children, color = C.amberDark, bg = C.amberLight, border = C.amberBorder, style }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 99, background: bg, border: `1px solid ${border}`, fontSize: 12, fontWeight: 600, color, ...style }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 99, background: bg, border: `1px solid ${border}`, fontSize: 12, fontWeight: 700, color, fontStyle: "normal", ...style }}>
       {children}
     </span>
   );
@@ -194,11 +201,11 @@ function ConfirmDialog({ title, message, confirmLabel = "Confirm", confirmColor 
   return (
     <Overlay onClick={onCancel}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: C.card, borderRadius: 24, padding: "28px 24px", width: "90%", maxWidth: 360,
+        background: C.card, borderRadius: 24, padding: "28px 24px", width: "90%", maxWidth: 380,
         boxShadow: "0 24px 64px rgba(0,0,0,0.18)", animation: "popIn 0.2s ease",
       }}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 800, color: C.text }}>{title}</h3>
-        <p style={{ margin: "0 0 24px", fontSize: 14, color: C.textMuted, lineHeight: 1.6 }}>{message}</p>
+        <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{title}</h3>
+        <p style={{ margin: "0 0 24px", fontSize: 14, color: C.textMuted, lineHeight: 1.6, fontStyle: "normal" }}>{message}</p>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onCancel} style={ghostBtn}>Cancel</button>
           <button onClick={onConfirm} style={{ ...solidBtn, background: confirmColor, flex: 1 }}>{confirmLabel}</button>
@@ -208,10 +215,15 @@ function ConfirmDialog({ title, message, confirmLabel = "Confirm", confirmColor 
   );
 }
 
-/* ─────────────────────────────────────────────
-   OVERLAY WRAPPER
-───────────────────────────────────────────── */
 function Overlay({ children, onClick }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && onClick) onClick(e);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClick]);
+
   return (
     <div onClick={onClick} style={{
       position: "fixed", inset: 0, background: "rgba(17,24,39,0.5)", zIndex: 200,
@@ -223,10 +235,15 @@ function Overlay({ children, onClick }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   BOTTOM SHEET WRAPPER
-───────────────────────────────────────────── */
 function Sheet({ children, onClose, maxHeight = "92vh" }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose()} style={{
       position: "fixed", inset: 0, background: "rgba(17,24,39,0.5)", zIndex: 200,
@@ -234,7 +251,7 @@ function Sheet({ children, onClose, maxHeight = "92vh" }) {
       backdropFilter: "blur(4px)",
     }}>
       <div style={{
-        background: C.card, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 600,
+        background: C.card, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 640,
         maxHeight, overflowY: "auto", padding: "0 0 max(24px, env(safe-area-inset-bottom))",
         animation: "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)",
       }}>
@@ -246,7 +263,7 @@ function Sheet({ children, onClose, maxHeight = "92vh" }) {
 }
 
 /* ─────────────────────────────────────────────
-   CHALLENGE FORM (create / edit)
+   CHALLENGE FORM (Create / Edit)
 ───────────────────────────────────────────── */
 function ChallengeForm({ initial, onSave, onClose }) {
   const [name, setName] = useState(initial?.name || "");
@@ -289,19 +306,17 @@ function ChallengeForm({ initial, onSave, onClose }) {
 
   return (
     <Sheet onClose={onClose} maxHeight="96vh">
-      <div style={{ padding: "20px 20px 0" }}>
+      <div style={{ padding: "24px 24px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>{initial ? "Edit Challenge" : "New Challenge"}</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{initial ? "Edit Challenge" : "New Challenge"}</h2>
           <button onClick={onClose} style={{ ...iconBtn }}>✕</button>
         </div>
 
         <FormLabel>Challenge name</FormLabel>
-        <input ref={nameRef} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. 30-Day Fitness Journey"
-          style={inputSt} />
+        <input ref={nameRef} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. 30-Day Fitness Journey" style={inputSt} />
 
         <FormLabel>Description <span style={{ color: C.textMuted, fontWeight: 400 }}>(optional)</span></FormLabel>
-        <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} placeholder="What's the goal?"
-          style={{ ...inputSt, resize: "vertical" }} />
+        <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} placeholder="What is your main goal?" style={{ ...inputSt, resize: "vertical" }} />
 
         <FormLabel>Start date</FormLabel>
         <input type="date" value={start} onChange={e => setStart(e.target.value)} style={inputSt} />
@@ -313,25 +328,22 @@ function ChallengeForm({ initial, onSave, onClose }) {
               padding: "8px 16px", borderRadius: 99, border: `2px solid ${durKey === k ? C.amber : C.borderMid}`,
               background: durKey === k ? C.amberLight : "transparent",
               color: durKey === k ? C.amberDeep : C.textMuted,
-              fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: font,
-              transition: "all 0.15s",
-            }}>{k === "custom" ? "Custom" : `${k}d`}</button>
+              fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: font, transition: "all 0.15s", fontStyle: "normal",
+            }}>{k === "custom" ? "Custom" : `${k} days`}</button>
           ))}
         </div>
         {durKey === "custom" && (
-          <input type="number" min={1} max={365} value={customDur} onChange={e => setCustomDur(e.target.value)}
-            placeholder="Number of days" style={{ ...inputSt, marginBottom: 4 }} />
+          <input type="number" min={1} max={365} value={customDur} onChange={e => setCustomDur(e.target.value)} placeholder="Number of days" style={{ ...inputSt, marginBottom: 4 }} />
         )}
 
         <FormLabel style={{ marginTop: 20 }}>Daily habits</FormLabel>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <input value={newHabit} onChange={e => setNewHabit(e.target.value)} placeholder="e.g. Read 10 pages"
-            onKeyDown={e => e.key === "Enter" && addHabit()} style={{ ...inputSt, margin: 0, flex: 1 }} />
-          <button onClick={addHabit} style={{ ...solidBtn, padding: "0 18px", flexShrink: 0 }}>Add</button>
+          <input value={newHabit} onChange={e => setNewHabit(e.target.value)} placeholder="e.g. Read 10 pages" onKeyDown={e => e.key === "Enter" && addHabit()} style={{ ...inputSt, margin: 0, flex: 1 }} />
+          <button onClick={addHabit} style={{ ...solidBtn, padding: "0 18px", flexShrink: 0 }}>Add Habit</button>
         </div>
 
         {habits.length === 0 && (
-          <p style={{ fontSize: 13, color: C.textMuted, margin: "4px 0 12px", textAlign: "center" }}>No habits yet — add at least one above.</p>
+          <p style={{ fontSize: 13, color: C.textMuted, margin: "4px 0 12px", textAlign: "center", fontStyle: "normal" }}>Add at least one daily habit above.</p>
         )}
 
         {habits.map((h, i) => (
@@ -342,15 +354,12 @@ function ChallengeForm({ initial, onSave, onClose }) {
             </div>
             {editId === h.id ? (
               <>
-                <input value={editVal} onChange={e => setEditVal(e.target.value)} autoFocus
-                  onKeyDown={e => { if (e.key === "Enter") { setHabits(hs => hs.map(x => x.id === h.id ? {...x, name: editVal} : x)); setEditId(null); }}}
-                  style={{ ...inputSt, margin: 0, flex: 1, padding: "6px 10px", fontSize: 13 }} />
-                <button onClick={() => { setHabits(hs => hs.map(x => x.id === h.id ? {...x, name: editVal} : x)); setEditId(null); }}
-                  style={{ ...iconBtn, color: C.green }}>✓</button>
+                <input value={editVal} onChange={e => setEditVal(e.target.value)} autoFocus onKeyDown={e => { if (e.key === "Enter") { setHabits(hs => hs.map(x => x.id === h.id ? {...x, name: editVal} : x)); setEditId(null); }}} style={{ ...inputSt, margin: 0, flex: 1, padding: "6px 10px", fontSize: 13 }} />
+                <button onClick={() => { setHabits(hs => hs.map(x => x.id === h.id ? {...x, name: editVal} : x)); setEditId(null); }} style={{ ...iconBtn, color: C.green }}>✓</button>
               </>
             ) : (
               <>
-                <span style={{ flex: 1, fontSize: 14, color: C.textMid }}>{h.name}</span>
+                <span style={{ flex: 1, fontSize: 14, color: C.textMid, fontWeight: 500, fontStyle: "normal" }}>{h.name}</span>
                 <button onClick={() => { setEditId(h.id); setEditVal(h.name); }} style={{ ...iconBtn }}>✎</button>
                 <button onClick={() => setHabits(hs => hs.filter(x => x.id !== h.id))} style={{ ...iconBtn, color: C.red }}>✕</button>
               </>
@@ -359,8 +368,8 @@ function ChallengeForm({ initial, onSave, onClose }) {
         ))}
 
         <FormLabel style={{ marginTop: 20 }}>Daily Completion Requirement</FormLabel>
-        <p style={{ margin: "0 0 10px", fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-          How many habits must be done for the day to count toward your streak?
+        <p style={{ margin: "0 0 10px", fontSize: 13, color: C.textMuted, lineHeight: 1.5, fontStyle: "normal" }}>
+          How many habits must be completed for the day to count toward your streak?
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {[{ k: "100", l: "100%" }, { k: "75", l: "75%" }, { k: "50", l: "50%" }, { k: "custom", l: "Custom" }].map(({ k, l }) => (
@@ -368,26 +377,24 @@ function ChallengeForm({ initial, onSave, onClose }) {
               padding: "8px 16px", borderRadius: 99, border: `2px solid ${compReqKey === k ? C.amber : C.borderMid}`,
               background: compReqKey === k ? C.amberLight : "transparent",
               color: compReqKey === k ? C.amberDeep : C.textMuted,
-              fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: font, transition: "all 0.15s",
+              fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: font, transition: "all 0.15s", fontStyle: "normal",
             }}>{l}</button>
           ))}
         </div>
         {compReqKey === "custom" && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <input type="number" min={1} max={100} value={customCompReq}
-              onChange={e => setCustomCompReq(e.target.value)}
-              placeholder="e.g. 80" style={{ ...inputSt, margin: 0, flex: 1 }} />
+            <input type="number" min={1} max={100} value={customCompReq} onChange={e => setCustomCompReq(e.target.value)} placeholder="e.g. 80" style={{ ...inputSt, margin: 0, flex: 1 }} />
             <span style={{ fontSize: 14, color: C.textMuted, fontWeight: 700 }}>%</span>
           </div>
         )}
         {compReq < 100 && (
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: C.green, fontWeight: 600 }}>
-            ✓ Flexible mode — complete {Math.max(1, Math.ceil((habits.length || 1) * compReq / 100))} of {habits.length || "?"} habits per day.
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: C.green, fontWeight: 600, fontStyle: "normal" }}>
+            Flexible mode — complete {Math.max(1, Math.ceil((habits.length || 1) * compReq / 100))} of {habits.length || "?"} habits per day.
           </p>
         )}
 
-        <button onClick={handleSave} style={{ ...solidBtn, width: "100%", padding: "16px", marginTop: 20, marginBottom: 8, fontSize: 16, fontWeight: 800 }}>
-          {initial ? "Save changes" : `Start ${dur}-Day Challenge 🚀`}
+        <button onClick={handleSave} style={{ ...solidBtn, width: "100%", padding: "16px", marginTop: 24, marginBottom: 12, fontSize: 16, fontWeight: 800 }}>
+          {initial ? "Save Changes" : `Start ${dur}-Day Challenge`}
         </button>
       </div>
     </Sheet>
@@ -395,20 +402,19 @@ function ChallengeForm({ initial, onSave, onClose }) {
 }
 
 function FormLabel({ children, style }) {
-  return <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16, ...style }}>{children}</label>;
+  return <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 16, fontStyle: "normal", ...style }}>{children}</label>;
 }
 
 /* ─────────────────────────────────────────────
-   TODAY CHECK-IN SCREEN  (primary screen)
+   TODAY SCREEN (Primary Dashboard)
 ───────────────────────────────────────────── */
-function TodayScreen({ challenges, allRecords, onComplete, onSkip, onCreateChallenge }) {
+function TodayScreen({ challenges, allRecords, onComplete, onSkip, onCreateChallenge, onShowTemplates }) {
   const td = todayStr();
   const activeChallenges = challenges.filter(c => {
     const end = addDays(c.startDate, c.duration - 1);
     return td >= c.startDate && td <= end;
   });
 
-  // Per-challenge local habit checks (only used within this screen before "Complete Today")
   const [checks, setChecks] = useState(() => {
     const init = {};
     activeChallenges.forEach(c => {
@@ -417,9 +423,8 @@ function TodayScreen({ challenges, allRecords, onComplete, onSkip, onCreateChall
     return init;
   });
 
-  const [skipId, setSkipId] = useState(null); // challenge id pending skip confirm
+  const [skipId, setSkipId] = useState(null);
 
-  // Reset checks when challenges change (e.g. after completing)
   useEffect(() => {
     setChecks(prev => {
       const next = {};
@@ -434,166 +439,230 @@ function TodayScreen({ challenges, allRecords, onComplete, onSkip, onCreateChall
     setChecks(prev => ({ ...prev, [cid]: { ...prev[cid], [habit]: !prev[cid]?.[habit] } }));
   };
 
+  const quote = QUOTES[new Date().getDay() % QUOTES.length];
+  const statsG = globalStats(challenges, allRecords);
+
+  // REDESIGNED POLISHED EMPTY STATE (Requirement 8)
   if (activeChallenges.length === 0) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🎯</div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, color: C.text }}>No active challenges</h2>
-        <p style={{ margin: "0 0 28px", color: C.textMuted, fontSize: 15, maxWidth: 280, lineHeight: 1.6 }}>
-          Create your first challenge and start building consistency today.
-        </p>
-        <button onClick={onCreateChallenge} style={{ ...solidBtn, padding: "15px 36px", fontSize: 16, fontWeight: 800 }}>
-          Create a Challenge
-        </button>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 0 60px" }}>
+        <div style={{
+          background: C.card, borderRadius: 28, border: `1.5px solid ${C.border}`,
+          padding: "48px 32px", textAlign: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.03)",
+        }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: 99, background: C.amberLight,
+            border: `2px solid ${C.amberBorder}`, margin: "0 auto 20px",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+          }}>
+            🎯
+          </div>
+
+          <h2 style={{ margin: "0 0 10px", fontSize: 26, fontWeight: 800, color: C.text, fontStyle: "normal" }}>
+            Start Your First Challenge
+          </h2>
+          <p style={{ margin: "0 auto 32px", color: C.textMuted, fontSize: 16, maxWidth: 440, lineHeight: 1.6, fontStyle: "normal" }}>
+            Build daily consistency with a time-boxed habit challenge. Create your own or choose a pre-made template.
+          </p>
+
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={onCreateChallenge} style={{ ...solidBtn, padding: "14px 28px", fontSize: 15, fontWeight: 800 }}>
+              + Create a Challenge
+            </button>
+            <button onClick={onShowTemplates} style={{ ...ghostBtn, padding: "14px 24px", fontSize: 15, fontWeight: 700 }}>
+              Browse Templates
+            </button>
+          </div>
+        </div>
+
+        {/* TEMPLATE QUICK STARTERS */}
+        <div style={{ marginTop: 40 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 16, fontStyle: "normal" }}>Popular Challenge Templates</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+            {TEMPLATES.slice(0, 3).map((t, idx) => (
+              <div key={idx} onClick={onShowTemplates} style={{
+                background: C.card, borderRadius: 20, border: `1.5px solid ${C.border}`,
+                padding: "20px", cursor: "pointer", transition: "all 0.2s ease",
+              }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = C.amber}
+                onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <Pill>{t.duration} Days</Pill>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.amberDark }}>{t.habits.length} habits</span>
+                </div>
+                <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{t.name}</h4>
+                <p style={{ margin: 0, fontSize: 13, color: C.textMuted, lineHeight: 1.5, fontStyle: "normal" }}>{t.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
-  const quote = QUOTES[new Date().getDay() % QUOTES.length];
-
   return (
-    <div style={{ paddingBottom: 100 }}>
-      {/* Date header */}
-      <div style={{ padding: "4px 20px 20px" }}>
-        <p style={{ margin: "0 0 2px", fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          {fmtDateFull(td)}
-        </p>
-        <h2 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 900, color: C.text }}>Today's Check-In</h2>
-        <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "italic" }}>"{quote}"</p>
-      </div>
+    <div className="tracker-today-layout" style={{ paddingBottom: 60 }}>
+      {/* LEFT MAIN COLUMN: Active Challenges */}
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", fontStyle: "normal" }}>
+            {fmtDateFull(td)}
+          </p>
+          <h1 style={{ margin: "0 0 6px", fontSize: 28, fontWeight: 900, color: C.text, fontStyle: "normal" }}>Today's Check-In</h1>
+          <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "normal" }}>"{quote}"</p>
+        </div>
 
-      {activeChallenges.map(c => {
-        const rec = (allRecords[c.id] || {})[td];
-        const isDone = rec === "completed";
-        const isSkipped = rec === "skipped";
-        const stats = calcStats(c, allRecords[c.id] || {});
-        const habitChecks = checks[c.id] || {};
-        const checkedCount = c.habits.filter(h => habitChecks[h]).length;
-        const reqPct = c.completionReq || 100;
-        const threshold = Math.max(1, Math.ceil(c.habits.length * reqPct / 100));
-        const canComplete = checkedCount >= threshold;
+        {activeChallenges.map(c => {
+          const rec = (allRecords[c.id] || {})[td];
+          const isDone = rec === "completed";
+          const isSkipped = rec === "skipped";
+          const stats = calcStats(c, allRecords[c.id] || {});
+          const habitChecks = checks[c.id] || {};
+          const checkedCount = c.habits.filter(h => habitChecks[h]).length;
+          const reqPct = c.completionReq || 100;
+          const threshold = Math.max(1, Math.ceil(c.habits.length * reqPct / 100));
+          const canComplete = checkedCount >= threshold;
 
-        return (
-          <div key={c.id} style={{
-            margin: "0 16px 20px",
-            background: C.card,
-            borderRadius: 24,
-            border: `1.5px solid ${isDone ? C.greenBorder : isSkipped ? C.borderMid : C.amberBorder}`,
-            overflow: "hidden",
-            boxShadow: isDone ? "0 2px 20px rgba(5,150,105,0.08)" : "0 2px 20px rgba(245,158,11,0.06)",
-            transition: "all 0.3s ease",
-          }}>
-            {/* Card header */}
-            <div style={{ padding: "18px 20px 14px", background: isDone ? C.greenLight : isSkipped ? "#F9FAFB" : C.amberLight, borderBottom: `1px solid ${isDone ? C.greenBorder : isSkipped ? C.borderMid : C.amberBorder}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: C.text }}>{c.name}</h3>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <Pill>Day {stats.todayDayNum} of {stats.totalDays}</Pill>
-                    {stats.currentStreak > 0 && <Pill emoji="🔥">🔥 {stats.currentStreak} streak</Pill>}
+          return (
+            <div key={c.id} style={{
+              margin: "0 0 24px",
+              background: C.card,
+              borderRadius: 24,
+              border: `1.5px solid ${isDone ? C.greenBorder : isSkipped ? C.borderMid : C.amberBorder}`,
+              overflow: "hidden",
+              boxShadow: isDone ? "0 2px 20px rgba(5,150,105,0.08)" : "0 2px 20px rgba(232,111,53,0.06)",
+            }}>
+              {/* Card Header */}
+              <div style={{
+                padding: "20px 24px",
+                background: isDone ? C.greenLight : isSkipped ? "#F9FAFB" : C.amberLight,
+                borderBottom: `1px solid ${isDone ? C.greenBorder : isSkipped ? C.borderMid : C.amberBorder}`,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{c.name}</h3>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <Pill>Day {stats.todayDayNum} of {stats.totalDays}</Pill>
+                      {stats.currentStreak > 0 && <Pill color={C.amberDark} bg="#FFE0BD" border={C.amberBorder}>🔥 {stats.currentStreak} day streak</Pill>}
+                    </div>
                   </div>
-                </div>
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <Ring pct={stats.pct} size={52} stroke={5} color={isDone ? C.green : C.amber} />
-                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: isDone ? C.green : C.amberDeep }}>
-                    {stats.pct}%
-                  </span>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <Ring pct={stats.pct} size={54} stroke={5} color={isDone ? C.green : C.amber} />
+                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: isDone ? C.green : C.amberDeep, fontStyle: "normal" }}>
+                      {stats.pct}%
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Body */}
-            <div style={{ padding: "16px 20px" }}>
-              {isDone ? (
-                <div style={{ textAlign: "center", padding: "12px 0" }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-                  <p style={{ margin: 0, fontWeight: 700, color: C.green, fontSize: 15 }}>Day completed! Great work.</p>
-                </div>
-              ) : isSkipped ? (
-                <div style={{ textAlign: "center", padding: "12px 0" }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>⏭️</div>
-                  <p style={{ margin: 0, fontWeight: 700, color: C.textMuted, fontSize: 15 }}>Skipped today. Tomorrow is a new chance.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Habit checklist */}
-                  <div style={{ marginBottom: 16 }}>
-                    {c.habits.map((h, i) => {
-                      const checked = !!habitChecks[h];
-                      return (
-                        <button key={i} onClick={() => toggle(c.id, h)} style={{
-                          display: "flex", alignItems: "center", gap: 14, width: "100%",
-                          background: "none", border: "none", cursor: "pointer", padding: "11px 0",
-                          borderBottom: i < c.habits.length - 1 ? `1px solid ${C.border}` : "none",
-                          textAlign: "left", fontFamily: font,
-                        }}>
-                          <div style={{
-                            width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-                            border: `2px solid ${checked ? C.amber : C.borderMid}`,
-                            background: checked ? C.amber : "transparent",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            transition: "all 0.18s ease",
-                          }}>
-                            {checked && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
-                          </div>
-                          <span style={{
-                            fontSize: 15, color: checked ? C.textMuted : C.text,
-                            textDecoration: checked ? "line-through" : "none",
-                            transition: "all 0.18s",
-                            fontWeight: checked ? 400 : 500,
-                          }}>{h}</span>
-                        </button>
-                      );
-                    })}
+              {/* Body */}
+              <div style={{ padding: "20px 24px" }}>
+                {isDone ? (
+                  <div style={{ textAlign: "center", padding: "16px 0" }}>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+                    <p style={{ margin: 0, fontWeight: 800, color: C.green, fontSize: 16, fontStyle: "normal" }}>Day completed! Great job showing up.</p>
                   </div>
+                ) : isSkipped ? (
+                  <div style={{ textAlign: "center", padding: "16px 0" }}>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>⏭️</div>
+                    <p style={{ margin: 0, fontWeight: 700, color: C.textMuted, fontSize: 16, fontStyle: "normal" }}>Skipped today. Tomorrow is a new chance.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 20 }}>
+                      {c.habits.map((h, i) => {
+                        const checked = !!habitChecks[h];
+                        return (
+                          <button key={i} onClick={() => toggle(c.id, h)} style={{
+                            display: "flex", alignItems: "center", gap: 14, width: "100%",
+                            background: "none", border: "none", cursor: "pointer", padding: "12px 0",
+                            borderBottom: i < c.habits.length - 1 ? `1px solid ${C.border}` : "none",
+                            textAlign: "left", fontFamily: font,
+                          }}>
+                            <div style={{
+                              width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                              border: `2px solid ${checked ? C.amber : C.borderMid}`,
+                              background: checked ? C.amber : "transparent",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              transition: "all 0.18s ease",
+                            }}>
+                              {checked && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                            </div>
+                            <span style={{
+                              fontSize: 15, color: checked ? C.textMuted : C.text,
+                              textDecoration: checked ? "line-through" : "none",
+                              fontWeight: checked ? 400 : 600, fontStyle: "normal",
+                            }}>{h}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                  {/* Progress hint */}
-                  {checkedCount > 0 && !canComplete && (
-                    <p style={{ margin: "0 0 14px", fontSize: 13, color: C.textMuted }}>
-                      {checkedCount}/{c.habits.length} habits — need {threshold} to complete ({reqPct}% rule).
-                    </p>
-                  )}
-                  {checkedCount === 0 && reqPct < 100 && (
-                    <p style={{ margin: "0 0 14px", fontSize: 13, color: C.textMuted }}>
-                      Need {threshold} of {c.habits.length} habits ({reqPct}% rule).
-                    </p>
-                  )}
+                    <button
+                      onClick={() => onComplete(c.id, habitChecks)}
+                      disabled={!canComplete}
+                      style={{
+                        ...solidBtn, width: "100%", padding: "16px",
+                        fontSize: 16, fontWeight: 800,
+                        opacity: canComplete ? 1 : 0.5,
+                        cursor: canComplete ? "pointer" : "not-allowed",
+                        marginBottom: 10,
+                        background: canComplete ? C.amber : C.borderMid,
+                        color: canComplete ? "#ffffff" : C.textMuted,
+                      }}
+                    >
+                      {canComplete ? "✓ Complete Today" : `${threshold - checkedCount} more habit${threshold - checkedCount !== 1 ? "s" : ""} needed`}
+                    </button>
 
-                  {/* CTA buttons */}
-                  <button
-                    onClick={() => onComplete(c.id, habitChecks)}
-                    disabled={!canComplete}
-                    style={{
-                      ...solidBtn, width: "100%", padding: "15px",
-                      fontSize: 16, fontWeight: 800,
-                      opacity: canComplete ? 1 : 0.45,
-                      cursor: canComplete ? "pointer" : "not-allowed",
-                      marginBottom: 10,
-                      background: canComplete ? `linear-gradient(135deg, ${C.amber}, ${C.amberDark})` : C.amber,
-                      boxShadow: canComplete ? "0 4px 20px rgba(245,158,11,0.4)" : "none",
-                      transform: "translateY(0)",
-                      transition: "all 0.2s ease",
-                    }}
-                    onMouseEnter={e => canComplete && (e.currentTarget.style.transform = "translateY(-1px)")}
-                    onMouseLeave={e => (e.currentTarget.style.transform = "translateY(0)")}
-                  >
-                    {canComplete ? "✓ Complete Today" : `${threshold - checkedCount} more habit${threshold - checkedCount !== 1 ? "s" : ""} needed`}
-                  </button>
+                    <button onClick={() => setSkipId(c.id)} style={{ ...ghostBtn, width: "100%", fontSize: 14 }}>
+                      Skip Today
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-                  <button onClick={() => setSkipId(c.id)} style={{ ...ghostBtn, width: "100%", fontSize: 14 }}>
-                    Skip Today
-                  </button>
-                </>
-              )}
+      {/* RIGHT SIDEBAR COLUMN: Overview & Quick Stats */}
+      <div>
+        <div style={{
+          background: C.card, borderRadius: 24, border: `1.5px solid ${C.border}`,
+          padding: "24px", position: "sticky", top: 90,
+        }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 800, color: C.text, fontStyle: "normal" }}>Daily Momentum</h3>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+            <div style={{ background: C.amberLight, borderRadius: 16, padding: "16px", border: `1px solid ${C.amberBorder}`, textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.amberDark, fontStyle: "normal" }}>🔥 {statsG.bestStreak}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.amberDeep, marginTop: 2, fontStyle: "normal" }}>Best Streak</div>
+            </div>
+            <div style={{ background: C.greenLight, borderRadius: 16, padding: "16px", border: `1px solid ${C.greenBorder}`, textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.green, fontStyle: "normal" }}>🎯 {statsG.totalCompleted}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.green, marginTop: 2, fontStyle: "normal" }}>Days Done</div>
             </div>
           </div>
-        );
-      })}
+
+          <div style={{ background: C.bg, borderRadius: 16, padding: "16px", border: `1px solid ${C.borderMid}`, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontStyle: "normal" }}>Quick Actions</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={onCreateChallenge} style={{ ...solidBtn, width: "100%", padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>+ New Challenge</button>
+              <button onClick={onShowTemplates} style={{ ...ghostBtn, width: "100%", padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>Browse Templates</button>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 1.5, fontStyle: "normal" }}>
+            StreakUp tracks habits locally in your browser. Consistent steps lead to lasting momentum.
+          </div>
+        </div>
+      </div>
 
       {skipId && (
         <ConfirmDialog
           title="Skip today?"
-          message="Skipping will not break your streak but this day won't count as completed. Are you sure?"
+          message="Skipping will maintain your streak history without marking today as completed. Are you sure?"
           confirmLabel="Skip Today"
           confirmColor={C.textMid}
           onConfirm={() => { onSkip(skipId); setSkipId(null); }}
@@ -607,30 +676,43 @@ function TodayScreen({ challenges, allRecords, onComplete, onSkip, onCreateChall
 /* ─────────────────────────────────────────────
    CHALLENGES LIST SCREEN
 ───────────────────────────────────────────── */
-function ChallengesScreen({ challenges, allRecords, onSelect, onEdit, onDuplicate, onDelete, onCreate }) {
+function ChallengesScreen({ challenges, allRecords, onSelect, onEdit, onDuplicate, onDelete, onCreate, onShowTemplates }) {
   const td = todayStr();
   const [menuId, setMenuId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
   if (challenges.length === 0) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>📋</div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800, color: C.text }}>No challenges yet</h2>
-        <p style={{ margin: "0 0 24px", color: C.textMuted, fontSize: 14, maxWidth: 260, lineHeight: 1.6 }}>Create your first challenge to start tracking your streaks.</p>
-        <button onClick={onCreate} style={{ ...solidBtn, padding: "13px 28px" }}>Create Challenge</button>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 0 60px", textAlign: "center" }}>
+        <div style={{
+          background: C.card, borderRadius: 28, border: `1.5px solid ${C.border}`,
+          padding: "48px 32px", boxShadow: "0 4px 24px rgba(0,0,0,0.03)",
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+          <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, color: C.text, fontStyle: "normal" }}>No Challenges Yet</h2>
+          <p style={{ margin: "0 auto 24px", color: C.textMuted, fontSize: 15, maxWidth: 360, lineHeight: 1.6, fontStyle: "normal" }}>
+            Create your first habit challenge to start tracking daily consistency.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button onClick={onCreate} style={{ ...solidBtn, padding: "14px 28px" }}>+ Create Challenge</button>
+            <button onClick={onShowTemplates} style={{ ...ghostBtn, padding: "14px 24px" }}>Browse Templates</button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ paddingBottom: 100 }} onClick={() => menuId && setMenuId(null)}>
-      <div style={{ padding: "4px 20px 20px" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 900, color: C.text }}>My Challenges</h2>
-        <p style={{ margin: 0, fontSize: 14, color: C.textMuted }}>{challenges.length} challenge{challenges.length !== 1 ? "s" : ""} total</p>
+    <div style={{ paddingBottom: 60 }} onClick={() => menuId && setMenuId(null)}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 900, color: C.text, fontStyle: "normal" }}>My Challenges</h1>
+          <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "normal" }}>{challenges.length} challenge{challenges.length !== 1 ? "s" : ""} active & tracked</p>
+        </div>
+        <button onClick={onCreate} style={{ ...solidBtn, padding: "10px 20px" }}>+ New Challenge</button>
       </div>
 
-      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="tracker-grid-cards">
         {challenges.map(c => {
           const stats = calcStats(c, allRecords[c.id] || {});
           const status = stats.isFinished ? "finished" : stats.isActive ? "active" : "upcoming";
@@ -642,31 +724,30 @@ function ChallengesScreen({ challenges, allRecords, onSelect, onEdit, onDuplicat
             <div key={c.id} onClick={() => onSelect(c)} style={{
               background: C.card, borderRadius: 20, border: `1.5px solid ${C.border}`,
               cursor: "pointer", overflow: "visible", position: "relative",
-              transition: "box-shadow 0.2s, transform 0.2s",
-              boxShadow: "0 1px 8px rgba(0,0,0,0.04)",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
             }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.10)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 8px rgba(0,0,0,0.04)"; e.currentTarget.style.transform = ""; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = ""; }}
             >
-              <div style={{ padding: "18px 18px 14px" }}>
+              <div style={{ padding: "20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, textTransform: "uppercase", letterSpacing: "0.06em" }}>{statusLabel}</span>
-                      {status === "active" && todayRec === "completed" && <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>✓ Done today</span>}
-                      {status === "active" && todayRec === "skipped" && <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted }}>⏭ Skipped</span>}
+                      <span style={{ fontSize: 11, fontWeight: 800, color: statusColor, textTransform: "uppercase", letterSpacing: "0.06em", fontStyle: "normal" }}>{statusLabel}</span>
+                      {status === "active" && todayRec === "completed" && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, fontStyle: "normal" }}>✓ Done today</span>}
+                      {status === "active" && todayRec === "skipped" && <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, fontStyle: "normal" }}>⏭ Skipped</span>}
                     </div>
-                    <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</h3>
-                    <p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{fmtDate(c.startDate)} → {fmtDate(stats.end)} · {c.habits.length} habits</p>
+                    <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontStyle: "normal" }}>{c.name}</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: C.textMuted, fontStyle: "normal" }}>{fmtDate(c.startDate)} → {fmtDate(stats.end)} · {c.habits.length} habits</p>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <div style={{ position: "relative" }}>
                       <Ring pct={stats.pct} size={48} stroke={5} color={stats.isFinished ? C.textMuted : C.amber} />
-                      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.amberDeep }}>{stats.pct}%</span>
+                      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.amberDeep, fontStyle: "normal" }}>{stats.pct}%</span>
                     </div>
 
-                    {/* ⋯ menu */}
                     <button onClick={e => { e.stopPropagation(); setMenuId(menuId === c.id ? null : c.id); }}
                       style={{ ...iconBtn, width: 32, height: 32, borderRadius: 10, background: menuId === c.id ? C.amberMid : "transparent" }}>
                       ⋯
@@ -679,14 +760,14 @@ function ChallengesScreen({ challenges, allRecords, onSelect, onEdit, onDuplicat
                         zIndex: 50, minWidth: 160, overflow: "hidden",
                       }}>
                         {[
-                          { label: "✎  Edit", action: () => { setMenuId(null); onEdit(c); } },
-                          { label: "⧉  Duplicate", action: () => { setMenuId(null); onDuplicate(c); } },
-                          { label: "✕  Delete", action: () => { setMenuId(null); setDeleteId(c.id); }, danger: true },
+                          { label: "✎ Edit", action: () => { setMenuId(null); onEdit(c); } },
+                          { label: "⧉ Duplicate", action: () => { setMenuId(null); onDuplicate(c); } },
+                          { label: "✕ Delete", action: () => { setMenuId(null); setDeleteId(c.id); }, danger: true },
                         ].map(({ label, action, danger }) => (
                           <button key={label} onClick={action} style={{
-                            display: "block", width: "100%", padding: "13px 16px", background: "none",
+                            display: "block", width: "100%", padding: "12px 16px", background: "none",
                             border: "none", textAlign: "left", fontSize: 14, fontWeight: 600,
-                            color: danger ? C.red : C.text, cursor: "pointer", fontFamily: font,
+                            color: danger ? C.red : C.text, cursor: "pointer", fontFamily: font, fontStyle: "normal",
                           }}
                             onMouseEnter={e => e.currentTarget.style.background = danger ? C.redLight : C.bg}
                             onMouseLeave={e => e.currentTarget.style.background = "none"}
@@ -697,10 +778,10 @@ function ChallengesScreen({ challenges, allRecords, onSelect, onEdit, onDuplicat
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12, color: C.textMuted }}>
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 12, color: C.textMuted, fontWeight: 600, fontStyle: "normal" }}>
                     <span>{stats.completedDays} / {stats.totalDays} days done</span>
-                    {stats.currentStreak > 0 && <span>🔥 {stats.currentStreak} streak</span>}
+                    {stats.currentStreak > 0 && <span>🔥 {stats.currentStreak} day streak</span>}
                   </div>
                   <ProgressBar pct={stats.pct} />
                 </div>
@@ -734,52 +815,23 @@ function DetailScreen({ challenge, records, habitRecords, onBack, onEdit, onDupl
   const habitStats = calcHabitStats(challenge, records, habitRecords);
   const reqPct = challenge.completionReq || 100;
 
-  // Calendar
-  const [calMonth, setCalMonth] = useState(() => {
-    const d = new Date(challenge.startDate + "T00:00:00");
-    return { y: d.getFullYear(), m: d.getMonth() };
-  });
   const start = challenge.startDate;
   const end = stats.end;
 
-  const getDayBg = (dateStr) => {
-    if (dateStr < start || dateStr > end) return "transparent";
-    if (dateStr > td) return C.border;
-    const r = records[dateStr];
-    if (r === "skipped") return C.amberMid;
-    const hr = habitRecords[dateStr];
-    if (hr) {
-      const total = challenge.habits.length;
-      const done = challenge.habits.filter(h => hr[h]).length;
-      const pct = total > 0 ? (done / total) * 100 : 0;
-      if (pct >= 100) return C.green;
-      if (pct >= reqPct) return C.greenMid;
-      if (pct > 0) return C.yellow;
-      return C.redLight;
-    }
-    if (r === "completed") return C.green; // legacy: all-or-nothing day
-    if (dateStr < td) return C.redLight;   // missed (no record, past)
-    return "transparent";
-  };
-
-  const daysInMonth = new Date(calMonth.y, calMonth.m + 1, 0).getDate();
-  const firstDow = new Date(calMonth.y, calMonth.m, 1).getDay();
-
   return (
-    <div style={{ paddingBottom: 100 }} onClick={() => showMenu && setShowMenu(false)}>
-      {/* Back + actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 16px 16px" }}>
-        <button onClick={onBack} style={{ ...ghostBtn, gap: 4 }}>← Back</button>
+    <div style={{ paddingBottom: 60 }} onClick={() => showMenu && setShowMenu(false)}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <button onClick={onBack} style={{ ...ghostBtn, gap: 6, padding: "8px 16px", fontSize: 13 }}>← Back to Challenges</button>
         <div style={{ position: "relative" }}>
           <button onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }} style={{ ...iconBtn, width: 36, height: 36, borderRadius: 12, background: showMenu ? C.amberMid : "transparent" }}>⋯</button>
           {showMenu && (
             <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: 40, right: 0, background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(0,0,0,0.14)", zIndex: 50, minWidth: 160, overflow: "hidden" }}>
               {[
-                { label: "✎  Edit", action: () => { setShowMenu(false); onEdit(); } },
-                { label: "⧉  Duplicate", action: () => { setShowMenu(false); onDuplicate(); } },
-                { label: "✕  Delete", action: () => { setShowMenu(false); setConfirmDelete(true); }, danger: true },
+                { label: "✎ Edit", action: () => { setShowMenu(false); onEdit(); } },
+                { label: "⧉ Duplicate", action: () => { setShowMenu(false); onDuplicate(); } },
+                { label: "✕ Delete", action: () => { setShowMenu(false); setConfirmDelete(true); }, danger: true },
               ].map(({ label, action, danger }) => (
-                <button key={label} onClick={action} style={{ display: "block", width: "100%", padding: "13px 16px", background: "none", border: "none", textAlign: "left", fontSize: 14, fontWeight: 600, color: danger ? C.red : C.text, cursor: "pointer", fontFamily: font }}
+                <button key={label} onClick={action} style={{ display: "block", width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", fontSize: 14, fontWeight: 600, color: danger ? C.red : C.text, cursor: "pointer", fontFamily: font, fontStyle: "normal" }}
                   onMouseEnter={e => e.currentTarget.style.background = danger ? C.redLight : C.bg}
                   onMouseLeave={e => e.currentTarget.style.background = "none"}>{label}</button>
               ))}
@@ -788,130 +840,49 @@ function DetailScreen({ challenge, records, habitRecords, onBack, onEdit, onDupl
         </div>
       </div>
 
-      {/* Hero card */}
-      <div style={{ margin: "0 16px 20px", background: C.amberLight, borderRadius: 24, border: `1.5px solid ${C.amberBorder}`, padding: "20px 20px 18px" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 900, color: C.text }}>{challenge.name}</h2>
-        {challenge.description && <p style={{ margin: "0 0 12px", fontSize: 14, color: C.textMid }}>{challenge.description}</p>}
-        <p style={{ margin: "0 0 8px", fontSize: 13, color: C.textMuted }}>{fmtDate(challenge.startDate)} → {fmtDate(end)} · {challenge.duration} days</p>
-        {reqPct < 100 && (
-          <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, color: C.green }}>
-            ✓ Flexible — {reqPct}% daily completion rule
-          </p>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontSize: 13, color: C.textMid, fontWeight: 600 }}>{stats.completedDays} / {stats.totalDays} days complete</span>
-          <span style={{ fontSize: 13, fontWeight: 800, color: C.amberDeep }}>{stats.pct}%</span>
+      {/* Hero Header Card */}
+      <div style={{ background: C.amberLight, borderRadius: 24, border: `1.5px solid ${C.amberBorder}`, padding: "24px", marginBottom: 24 }}>
+        <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 900, color: C.text, fontStyle: "normal" }}>{challenge.name}</h1>
+        {challenge.description && <p style={{ margin: "0 0 14px", fontSize: 15, color: C.textMid, lineHeight: 1.5, fontStyle: "normal" }}>{challenge.description}</p>}
+        
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <Pill>{fmtDate(challenge.startDate)} → {fmtDate(end)}</Pill>
+          <Pill color={C.amberDark}>{challenge.duration} Days</Pill>
+          {reqPct < 100 && <Pill color={C.green} bg={C.greenLight} border={C.greenBorder}>Flexible Mode ({reqPct}%)</Pill>}
         </div>
-        <ProgressBar pct={stats.pct} height={10} />
 
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          {[
-            { label: "🔥 Streak", val: stats.currentStreak },
-            { label: "🏆 Best", val: stats.bestStreak },
-            { label: "⏭ Skipped", val: stats.skippedDays },
-          ].map(x => (
-            <div key={x.label} style={{ flex: 1, background: "#fff", borderRadius: 14, padding: "10px 8px", textAlign: "center", border: `1px solid ${C.amberBorder}` }}>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: C.amberDeep }}>{x.val}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 11, color: C.textMuted }}>{x.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Habits */}
-      <div style={{ margin: "0 16px 20px", background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: "18px 18px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>Daily Habits ({challenge.habits.length})</h3>
-          {reqPct < 100 && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.amber, background: C.amberLight, border: `1px solid ${C.amberBorder}`, borderRadius: 99, padding: "2px 8px" }}>
-              {reqPct}% rule
-            </span>
-          )}
-        </div>
-        {challenge.habits.map((h, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < challenge.habits.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.amber, flexShrink: 0 }} />
-            <span style={{ fontSize: 14, color: C.textMid }}>{h}</span>
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 14, fontWeight: 700, color: C.amberDeep, fontStyle: "normal" }}>
+            <span>Progress Overview</span>
+            <span>{stats.completedDays} / {stats.totalDays} Days ({stats.pct}%)</span>
           </div>
-        ))}
+          <ProgressBar pct={stats.pct} height={8} />
+        </div>
       </div>
 
-      {/* Habit Analytics */}
-      {habitStats.pastDays > 0 && (
-        <div style={{ margin: "0 16px 20px", background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: "18px" }}>
-          <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 800, color: C.text }}>Habit Analytics</h3>
-          <p style={{ margin: "0 0 16px", fontSize: 12, color: C.textMuted }}>
-            Across {habitStats.pastDays} tracked day{habitStats.pastDays !== 1 ? "s" : ""}
-          </p>
+      {/* Habits Breakdown */}
+      <div style={{ background: C.card, borderRadius: 24, border: `1.5px solid ${C.border}`, padding: "24px", marginBottom: 24 }}>
+        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: C.text, fontStyle: "normal" }}>Daily Habits</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
           {challenge.habits.map((h, i) => {
-            const done = habitStats.perHabit[h] || 0;
-            const pct = habitStats.pastDays > 0 ? Math.round((done / habitStats.pastDays) * 100) : 0;
+            const count = habitStats.perHabit[h] || 0;
+            const pct = habitStats.pastDays > 0 ? Math.round((count / habitStats.pastDays) * 100) : 0;
             return (
-              <div key={i} style={{ marginBottom: i < challenge.habits.length - 1 ? 16 : 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textMid, flex: 1, marginRight: 8 }}>{h}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.amberDeep, flexShrink: 0 }}>
-                    {done}/{habitStats.pastDays} days ({pct}%)
-                  </span>
-                </div>
-                <ProgressBar pct={pct} height={5} color={pct >= 75 ? C.green : pct >= 50 ? C.amber : C.textLight} />
+              <div key={i} style={{ background: C.bg, borderRadius: 16, padding: "14px 16px", border: `1px solid ${C.borderMid}` }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4, fontStyle: "normal" }}>{h}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, fontStyle: "normal" }}>Completed {count} times ({pct}%)</div>
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Calendar */}
-      <div style={{ margin: "0 16px 20px", background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: "18px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>Progress Calendar</h3>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => setCalMonth(({ y, m }) => m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 })} style={iconBtn}>‹</button>
-            <button onClick={() => setCalMonth(({ y, m }) => m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 })} style={iconBtn}>›</button>
-          </div>
-        </div>
-        <p style={{ margin: "0 0 12px", fontSize: 12, color: C.textMuted, fontWeight: 600 }}>
-          {new Date(calMonth.y, calMonth.m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
-          {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => <div key={d} style={{ textAlign: "center", fontSize: 10, color: C.textMuted, fontWeight: 700, paddingBottom: 4 }}>{d}</div>)}
-          {Array.from({ length: firstDow }).map((_, i) => <div key={"e" + i} />)}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const ds = `${calMonth.y}-${String(calMonth.m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const bg = getDayBg(ds);
-            const inRange = ds >= start && ds <= end && ds <= td;
-            const textColor = bg === C.green || bg === C.greenMid ? "#fff" : C.textMid;
-            return (
-              <div key={day} style={{ height: 32, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: inRange ? 600 : 400, color: textColor, border: ds === td ? `2px solid ${C.amber}` : "none" }}>
-                {day}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-          {[
-            [C.green, "All done"],
-            ...(reqPct < 100 ? [[C.greenMid, "Goal met"], [C.yellow, "Partial"]] : []),
-            [C.redLight, "Missed"],
-            [C.amberMid, "Skipped"],
-            [C.border, "Future"],
-          ].map(([bg, label]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 3, background: bg, border: `1px solid ${C.borderMid}` }} />
-              <span style={{ fontSize: 11, color: C.textMuted }}>{label}</span>
-            </div>
-          ))}
         </div>
       </div>
 
       {confirmDelete && (
         <ConfirmDialog
           title="Delete challenge?"
-          message="This will permanently delete the challenge and all its history. This cannot be undone."
-          confirmLabel="Delete forever"
-          onConfirm={() => { onDelete(); setConfirmDelete(false); }}
+          message="This action cannot be undone. All completion history for this challenge will be deleted."
+          confirmLabel="Delete Challenge"
+          onConfirm={onDelete}
           onCancel={() => setConfirmDelete(false)}
         />
       )}
@@ -920,128 +891,58 @@ function DetailScreen({ challenge, records, habitRecords, onBack, onEdit, onDupl
 }
 
 /* ─────────────────────────────────────────────
-   TEMPLATES SCREEN
-───────────────────────────────────────────── */
-function TemplatesScreen({ onUse }) {
-  const [open, setOpen] = useState(null);
-  return (
-    <div style={{ paddingBottom: 100 }}>
-      <div style={{ padding: "4px 20px 20px" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 900, color: C.text }}>Templates</h2>
-        <p style={{ margin: 0, fontSize: 14, color: C.textMuted }}>Proven challenges to get you started.</p>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 16px" }}>
-        {TEMPLATES.map((t, i) => (
-          <div key={i} style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px", cursor: "pointer" }} onClick={() => setOpen(open === i ? null : i)}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ flex: 1 }}>
-                  <Pill style={{ marginBottom: 8 }}>{t.duration} Days</Pill>
-                  <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800, color: C.text }}>{t.name}</h3>
-                  <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>{t.description}</p>
-                </div>
-                <span style={{ fontSize: 18, color: C.textMuted, marginLeft: 12 }}>{open === i ? "↑" : "↓"}</span>
-              </div>
-            </div>
-            {open === i && (
-              <div style={{ padding: "0 18px 16px", borderTop: `1px solid ${C.border}` }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", margin: "14px 0 8px" }}>Daily Habits</p>
-                {t.habits.map((h, j) => (
-                  <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 14, color: C.textMid }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, flexShrink: 0 }} />
-                    {h}
-                  </div>
-                ))}
-                <button onClick={() => onUse(t)} style={{ ...solidBtn, width: "100%", marginTop: 14, padding: "13px" }}>
-                  Use This Template →
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
    STATS SCREEN
 ───────────────────────────────────────────── */
 function StatsScreen({ challenges, allRecords }) {
-  const td = todayStr();
-  const gs = useMemo(() => globalStats(challenges, allRecords), [challenges, allRecords]);
-  const earnedBadges = BADGES.filter(b => b.check(gs));
+  const statsG = globalStats(challenges, allRecords);
 
-  // weekly bars
-  const week = Array.from({ length: 7 }).map((_, i) => {
-    const d = addDays(td, -6 + i);
-    const label = new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "short" });
-    let done = 0, total = 0;
-    challenges.forEach(c => {
-      if (d < c.startDate || d > addDays(c.startDate, c.duration - 1)) return;
-      total++;
-      if ((allRecords[c.id] || {})[d] === "completed") done++;
-    });
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    return { label, pct, done, total };
-  });
-  const maxBar = Math.max(...week.map(w => w.pct), 1);
+  const unlockedBadges = BADGES.filter(b => b.check({ totalCompleted: statsG.totalCompleted, bestStreak: statsG.bestStreak }));
 
   return (
-    <div style={{ paddingBottom: 100 }}>
-      <div style={{ padding: "4px 20px 20px" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 900, color: C.text }}>Your Stats</h2>
-        <p style={{ margin: 0, fontSize: 14, color: C.textMuted }}>All time performance.</p>
+    <div style={{ paddingBottom: 60 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 900, color: C.text, fontStyle: "normal" }}>Statistics & Badges</h1>
+        <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "normal" }}>Track your lifetime consistency and earned achievements</p>
       </div>
 
-      {/* Top stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 16px", marginBottom: 20 }}>
-        {[
-          { label: "Days Completed", val: gs.totalCompleted, emoji: "✅" },
-          { label: "Best Streak", val: `${gs.bestStreak}d`, emoji: "🔥" },
-          { label: "Challenges", val: challenges.length, emoji: "🎯" },
-          { label: "Badges Earned", val: `${earnedBadges.length}/${BADGES.length}`, emoji: "🏅" },
-        ].map(x => (
-          <div key={x.label} style={{ background: C.card, borderRadius: 18, padding: "18px 16px", border: `1px solid ${C.border}` }}>
-            <p style={{ margin: "0 0 4px", fontSize: 24 }}>{x.emoji}</p>
-            <p style={{ margin: "0 0 2px", fontSize: 26, fontWeight: 900, color: C.text }}>{x.val}</p>
-            <p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{x.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Weekly bars */}
-      <div style={{ margin: "0 16px 20px", background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: "18px" }}>
-        <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 800, color: C.text }}>This Week</h3>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 90 }}>
-          {week.map(w => (
-            <div key={w.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{w.pct > 0 ? `${w.pct}%` : ""}</span>
-              <div style={{ width: "100%", background: C.amberMid, borderRadius: 6, height: 60, display: "flex", alignItems: "flex-end", overflow: "hidden" }}>
-                <div style={{ width: "100%", height: `${(w.pct / maxBar) * 100}%`, background: w.pct === 100 ? C.green : C.amber, transition: "height 0.5s ease", borderRadius: 6 }} />
-              </div>
-              <span style={{ fontSize: 10, color: C.textMuted }}>{w.label}</span>
-            </div>
-          ))}
+      {/* KPI Cards */}
+      <div className="tracker-stats-kpi-grid">
+        <div style={{ background: C.card, borderRadius: 20, padding: "20px", border: `1.5px solid ${C.border}` }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.amberDark, fontStyle: "normal" }}>🎯 {statsG.totalCompleted}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginTop: 4, fontStyle: "normal" }}>Total Days Completed</div>
+        </div>
+        <div style={{ background: C.card, borderRadius: 20, padding: "20px", border: `1.5px solid ${C.border}` }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.amberDark, fontStyle: "normal" }}>🔥 {statsG.bestStreak}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginTop: 4, fontStyle: "normal" }}>Best Streak Record</div>
+        </div>
+        <div style={{ background: C.card, borderRadius: 20, padding: "20px", border: `1.5px solid ${C.border}` }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.amberDark, fontStyle: "normal" }}>🏆 {unlockedBadges.length} / {BADGES.length}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginTop: 4, fontStyle: "normal" }}>Badges Earned</div>
+        </div>
+        <div style={{ background: C.card, borderRadius: 20, padding: "20px", border: `1.5px solid ${C.border}` }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.amberDark, fontStyle: "normal" }}>⚡ {challenges.length}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginTop: 4, fontStyle: "normal" }}>Total Challenges</div>
         </div>
       </div>
 
-      {/* Badges */}
-      <div style={{ margin: "0 16px", background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: "18px" }}>
-        <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: C.text }}>Badges</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10 }}>
+      {/* Badges Grid */}
+      <div style={{ background: C.card, borderRadius: 24, border: `1.5px solid ${C.border}`, padding: "24px", marginBottom: 28 }}>
+        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800, color: C.text, fontStyle: "normal" }}>Achievements</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
           {BADGES.map(b => {
-            const earned = b.check(gs);
+            const unlocked = b.check({ totalCompleted: statsG.totalCompleted, bestStreak: statsG.bestStreak });
             return (
               <div key={b.id} style={{
-                padding: "14px 10px", borderRadius: 16, textAlign: "center",
-                background: earned ? C.amberLight : C.bg,
-                border: `1.5px solid ${earned ? C.amberBorder : C.border}`,
-                opacity: earned ? 1 : 0.5,
+                display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                borderRadius: 16, background: unlocked ? C.amberLight : C.bg,
+                border: `1px solid ${unlocked ? C.amberBorder : C.borderMid}`,
+                opacity: unlocked ? 1 : 0.6,
               }}>
-                <div style={{ fontSize: 26, marginBottom: 6 }}>{b.emoji}</div>
-                <p style={{ margin: "0 0 2px", fontSize: 11, fontWeight: 800, color: earned ? C.amberDeep : C.textMuted }}>{b.label}</p>
-                <p style={{ margin: 0, fontSize: 10, color: C.textMuted }}>{b.desc}</p>
+                <span style={{ fontSize: 32 }}>{b.emoji}</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: unlocked ? C.amberDeep : C.textMuted, fontStyle: "normal" }}>{b.label}</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, fontStyle: "normal" }}>{b.desc}</div>
+                </div>
               </div>
             );
           })}
@@ -1052,325 +953,203 @@ function StatsScreen({ challenges, allRecords }) {
 }
 
 /* ─────────────────────────────────────────────
-   NOTES FEATURE
+   FORMATTED NOTE TEXT WITH CLICKABLE URL LINKS
 ───────────────────────────────────────────── */
+const URL_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
 
-const URL_SPLIT_REGEX = /(https?:\/\/[^\s]+)/g;
-const URL_TEST_REGEX = /^https?:\/\/[^\s]+$/;
-
-function renderTextWithLinks(text) {
+function FormattedNoteText({ text }) {
   if (!text) return null;
-  const parts = text.split(URL_SPLIT_REGEX);
-  return parts.map((part, i) =>
-    URL_TEST_REGEX.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-          style={{ color: C.blue, textDecoration: "underline", wordBreak: "break-all" }}
-          onClick={e => e.stopPropagation()}>{part}</a>
-      : <span key={i}>{part}</span>
-  );
-}
 
-function fmtRelative(iso) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+  const lines = text.split("\n");
 
-function NoteEditor({ note, onSave, onClose }) {
-  const [title, setTitle] = useState(note?.title || "");
-  const [content, setContent] = useState(note?.content || "");
-  const [saved, setSaved] = useState(true);
-  const [preview, setPreview] = useState(false);
-  const autoSaveRef = useRef(null);
-  const noteIdRef = useRef(note?.id || uid());
-  const isNew = !note;
+  return lines.map((line, lineIdx) => {
+    const elements = [];
+    let lastIndex = 0;
+    let match;
+    URL_REGEX.lastIndex = 0;
 
-  const doSave = useCallback((t, c) => {
-    onSave({ id: noteIdRef.current, title: t, content: c });
-    setSaved(true);
-  }, [onSave]);
+    while ((match = URL_REGEX.exec(line)) !== null) {
+      const matchText = match[0];
+      const matchIndex = match.index;
 
-  useEffect(() => {
-    if (isNew && title === "" && content === "") return;
-    setSaved(false);
-    clearTimeout(autoSaveRef.current);
-    autoSaveRef.current = setTimeout(() => doSave(title, content), 800);
-    return () => clearTimeout(autoSaveRef.current);
-  }, [title, content]);
+      if (matchIndex > lastIndex) {
+        elements.push(line.substring(lastIndex, matchIndex));
+      }
 
-  const handleClose = () => {
-    clearTimeout(autoSaveRef.current);
-    if (title.trim() || content.trim()) doSave(title, content);
-    onClose();
-  };
+      let cleanText = matchText;
+      let trailingPunct = "";
+      const punctMatch = cleanText.match(/[.,;!?)]+$/);
+      if (punctMatch) {
+        trailingPunct = punctMatch[0];
+        cleanText = cleanText.slice(0, -trailingPunct.length);
+      }
 
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 300, background: C.bg,
-      display: "flex", flexDirection: "column", fontFamily: font,
-      animation: "slideUp 0.22s cubic-bezier(0.32,0.72,0,1)",
-    }}>
-      {/* Header */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "14px 20px", borderBottom: `1px solid ${C.border}`,
-        background: "rgba(250,250,247,0.95)", backdropFilter: "blur(16px)",
-        flexShrink: 0, gap: 10,
-      }}>
-        <button onClick={handleClose} style={{ ...ghostBtn, padding: "8px 16px", fontSize: 14, gap: 6, flexShrink: 0 }}>← Done</button>
+      let href = cleanText;
+      if (cleanText.toLowerCase().startsWith("www.")) {
+        href = "http://" + cleanText;
+      }
 
-        {/* Edit / Preview toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "center" }}>
-          <div style={{ display: "flex", background: C.amberMid, borderRadius: 99, padding: 3 }}>
-            {[{ label: "Edit", val: false }, { label: "Preview", val: true }].map(({ label, val }) => (
-              <button key={label} onClick={() => setPreview(val)} style={{
-                padding: "4px 14px", borderRadius: 99, border: "none", cursor: "pointer",
-                fontFamily: font, fontSize: 12, fontWeight: 700,
-                background: preview === val ? C.amber : "transparent",
-                color: preview === val ? "#fff" : C.textMuted,
-                transition: "all 0.15s",
-              }}>{label}</button>
-            ))}
-          </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: saved ? C.textMuted : C.amber, transition: "color 0.3s", flexShrink: 0 }}>
-            {saved ? "Saved" : "Saving…"}
-          </span>
-        </div>
-
-        <button onClick={handleClose} style={{ ...solidBtn, padding: "8px 18px", fontSize: 14, flexShrink: 0 }}>Save</button>
-      </div>
-
-      {/* Editor body */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 40px" }}>
-        {/* Title — always shown in both modes */}
-        {preview ? (
-          <h2 style={{
-            margin: "0 0 16px", fontSize: 24, fontWeight: 900, color: title ? C.text : C.textMuted,
-            fontFamily: font,
-          }}>{title || "Untitled"}</h2>
-        ) : (
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Note title…"
-            autoFocus={isNew}
-            style={{
-              width: "100%", border: "none", outline: "none", background: "transparent",
-              fontSize: 24, fontWeight: 900, color: C.text, fontFamily: font,
-              marginBottom: 16, padding: 0, boxSizing: "border-box",
-            }}
-          />
-        )}
-
-        {/* Content — textarea in Edit mode, rendered links in Preview mode */}
-        {preview ? (
-          <div style={{
-            fontSize: 15, lineHeight: 1.75, color: C.textMid, fontFamily: font,
-            whiteSpace: "pre-wrap", wordBreak: "break-word", minHeight: "60vh",
-          }}>
-            {content.trim()
-              ? renderTextWithLinks(content)
-              : <span style={{ color: C.textLight, fontStyle: "italic" }}>Nothing to preview yet.</span>}
-          </div>
-        ) : (
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder={"Start writing…\n\nTip: switch to Preview to see clickable links."}
-            style={{
-              width: "100%", border: "none", outline: "none", background: "transparent",
-              fontSize: 15, lineHeight: 1.75, color: C.textMid, fontFamily: font,
-              resize: "none", minHeight: "60vh", padding: 0, boxSizing: "border-box",
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function NotesScreen({ notes, onNew, onEdit, onDelete, onDuplicate }) {
-  const [search, setSearch] = useState("");
-  const [deleteId, setDeleteId] = useState(null);
-  const [menuId, setMenuId] = useState(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    if (!menuId) return;
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuId(null);
-    };
-    const handleKey = (e) => { if (e.key === "Escape") setMenuId(null); };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [menuId]);
-
-  const openMenu = (e, noteId) => {
-    e.stopPropagation();
-    if (menuId === noteId) { setMenuId(null); return; }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const menuHeight = 144;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top = spaceBelow >= menuHeight ? rect.bottom + 4 : rect.top - menuHeight - 4;
-    setMenuPos({ top, right: window.innerWidth - rect.right });
-    setMenuId(noteId);
-  };
-
-  const menuNote = notes.find(n => n.id === menuId);
-
-  const filtered = notes.filter(n =>
-    n.title.toLowerCase().includes(search.toLowerCase()) ||
-    n.content.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div style={{ paddingBottom: 120 }} onClick={() => menuId && setMenuId(null)}>
-
-      {/* Fixed-position dropdown — rendered outside cards to avoid stacking/overlap issues */}
-      {menuId && menuNote && (
-        <div
-          ref={menuRef}
+      elements.push(
+        <a
+          key={`link-${lineIdx}-${matchIndex}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
           style={{
-            position: "fixed", top: menuPos.top, right: menuPos.right,
-            background: C.card, borderRadius: 16,
-            border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
-            zIndex: 400, minWidth: 164, overflow: "hidden",
+            color: "#be4f20",
+            textDecoration: "underline",
+            fontWeight: 700,
+            wordBreak: "break-word"
           }}
         >
-          {[
-            { label: "✎  Edit", action: () => { setMenuId(null); onEdit(menuNote); } },
-            { label: "⧉  Duplicate", action: () => { setMenuId(null); onDuplicate(menuNote); } },
-            { label: "✕  Delete", action: () => { setMenuId(null); setDeleteId(menuNote.id); }, danger: true },
-          ].map(({ label, action, danger }) => (
-            <button key={label} onClick={action} style={{
-              display: "block", width: "100%", padding: "13px 16px", background: "none",
-              border: "none", textAlign: "left", fontSize: 14, fontWeight: 600,
-              color: danger ? C.red : C.text, cursor: "pointer", fontFamily: font,
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = danger ? C.redLight : C.bg}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >{label}</button>
-          ))}
-        </div>
-      )}
-      {/* Header */}
-      <div style={{ padding: "4px 20px 16px" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 900, color: C.text }}>Notes</h2>
-        <p style={{ margin: "0 0 16px", fontSize: 14, color: C.textMuted }}>
-          {notes.length} note{notes.length !== 1 ? "s" : ""}
-        </p>
-        {/* Search bar */}
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: C.textMuted, pointerEvents: "none" }}>🔍</span>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search notes…"
-            style={{ ...inputSt, paddingLeft: 38, marginBottom: 0 }}
-          />
+          {cleanText}
+        </a>
+      );
+
+      if (trailingPunct) {
+        elements.push(trailingPunct);
+      }
+
+      lastIndex = matchIndex + matchText.length;
+    }
+
+    if (lastIndex < line.length) {
+      elements.push(line.substring(lastIndex));
+    }
+
+    return (
+      <span key={`line-${lineIdx}`}>
+        {elements}
+        {lineIdx < lines.length - 1 && <br />}
+      </span>
+    );
+  });
+}
+
+/* ─────────────────────────────────────────────
+   NOTES SCREEN
+───────────────────────────────────────────── */
+function NotesScreen({ notes, challenges = [], onNew, onEdit, onDelete, onDuplicate }) {
+  const [deleteId, setDeleteId] = useState(null);
+  const [filterChallengeId, setFilterChallengeId] = useState("all");
+
+  const filteredNotes = notes.filter(n => {
+    if (filterChallengeId === "all") return true;
+    if (filterChallengeId === "unlinked") return !n.challengeId;
+    return n.challengeId === filterChallengeId;
+  });
+
+  if (notes.length === 0) {
+    return (
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 0 60px", textAlign: "center" }}>
+        <div style={{
+          background: C.card, borderRadius: 28, border: `1.5px solid ${C.border}`,
+          padding: "48px 32px", boxShadow: "0 4px 24px rgba(0,0,0,0.03)",
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
+          <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, color: C.text, fontStyle: "normal" }}>No Notes Saved</h2>
+          <p style={{ margin: "0 auto 24px", color: C.textMuted, fontSize: 15, maxWidth: 360, lineHeight: 1.6, fontStyle: "normal" }}>
+            Keep track of daily reflections, habit ideas, and link notes directly to your active challenges.
+          </p>
+          <button onClick={() => onNew()} style={{ ...solidBtn, padding: "14px 28px" }}>+ Create First Note</button>
         </div>
       </div>
+    );
+  }
 
-      {/* Empty state */}
-      {notes.length === 0 && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "52vh", padding: 32, textAlign: "center" }}>
-          <div style={{ fontSize: 60, marginBottom: 16 }}>📝</div>
-          <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: C.text }}>Your ideas deserve a home</h3>
-          <p style={{ margin: "0 0 28px", fontSize: 14, color: C.textMuted, maxWidth: 260, lineHeight: 1.65 }}>
-            Create your first note to capture links, ideas, and resources.
-          </p>
-          <button onClick={onNew} style={{ ...solidBtn, padding: "13px 28px", fontSize: 15, fontWeight: 800 }}>
-            + Create First Note
+  return (
+    <div style={{ paddingBottom: 60 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 900, color: C.text, fontStyle: "normal" }}>Reflections & Notes</h1>
+          <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "normal" }}>{notes.length} note{notes.length !== 1 ? "s" : ""} saved · Linked to active challenges</p>
+        </div>
+        <button onClick={() => onNew()} style={{ ...solidBtn, padding: "10px 20px" }}>+ New Note</button>
+      </div>
+
+      {/* FILTER BAR FOR LINKED CHALLENGES */}
+      {challenges.length > 0 && (
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 16, marginBottom: 12 }}>
+          <button
+            onClick={() => setFilterChallengeId("all")}
+            style={{
+              padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700,
+              background: filterChallengeId === "all" ? C.amber : C.bg,
+              color: filterChallengeId === "all" ? "#fff" : C.textMid,
+              border: `1px solid ${filterChallengeId === "all" ? C.amber : C.borderMid}`,
+              cursor: "pointer", fontStyle: "normal"
+            }}
+          >
+            All Notes ({notes.length})
           </button>
+          {challenges.map(c => {
+            const count = notes.filter(n => n.challengeId === c.id).length;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setFilterChallengeId(c.id)}
+                style={{
+                  padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700,
+                  background: filterChallengeId === c.id ? C.amber : C.bg,
+                  color: filterChallengeId === c.id ? "#fff" : C.textMid,
+                  border: `1px solid ${filterChallengeId === c.id ? C.amber : C.borderMid}`,
+                  cursor: "pointer", fontStyle: "normal", whiteSpace: "nowrap"
+                }}
+              >
+                🎯 {c.name} ({count})
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* No search results */}
-      {notes.length > 0 && filtered.length === 0 && (
-        <div style={{ textAlign: "center", padding: "48px 24px" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-          <p style={{ fontSize: 15, color: C.textMuted }}>No notes match "{search}"</p>
-        </div>
-      )}
-
-      {/* Notes list */}
-      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {filtered.map(n => {
-          const previewText = n.content.trim().slice(0, 200).replace(/\n+/g, " · ");
+      <div className="tracker-notes-grid">
+        {filteredNotes.map(n => {
+          const linkedC = challenges.find(c => c.id === n.challengeId);
           return (
-            <div key={n.id}
-              onClick={() => onEdit(n)}
-              style={{
-                background: C.card, borderRadius: 20, border: `1.5px solid ${C.border}`,
-                padding: "16px 16px 14px", cursor: "pointer", position: "relative",
-                boxShadow: "0 1px 8px rgba(0,0,0,0.04)", transition: "box-shadow 0.2s, transform 0.2s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.09)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 8px rgba(0,0,0,0.04)"; e.currentTarget.style.transform = ""; }}
+            <div key={n.id} onClick={() => onEdit(n)} style={{
+              background: C.card, borderRadius: 20, border: `1.5px solid ${C.border}`,
+              padding: "20px", cursor: "pointer", transition: "all 0.2s ease",
+              display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 190,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = ""; }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ margin: "0 0 5px", fontSize: 16, fontWeight: 800, color: n.title ? C.text : C.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {n.title || "Untitled"}
-                  </h3>
-                  {previewText && (
-                    <p style={{ margin: "0 0 8px", fontSize: 13, color: C.textMuted, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                      {renderTextWithLinks(previewText)}
-                    </p>
-                  )}
-                  <span style={{ fontSize: 11, color: C.textLight, fontWeight: 500 }}>
-                    Updated {fmtRelative(n.updatedAt)}
-                  </span>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{n.title || "Untitled Note"}</h3>
+                  <button onClick={e => { e.stopPropagation(); onDuplicate(n); }} style={{ ...iconBtn, fontSize: 14 }} title="Duplicate">⧉</button>
                 </div>
 
-                {/* ⋯ menu — triggers fixed-position dropdown rendered at top of NotesScreen */}
-                <button
-                  onClick={e => openMenu(e, n.id)}
-                  style={{ ...iconBtn, width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: menuId === n.id ? C.amberMid : "transparent" }}
-                >⋯</button>
+                {linkedC && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 800, color: C.amberDark, background: C.amberPale,
+                    borderRadius: 8, padding: "4px 8px", width: "fit-content", marginBottom: 10,
+                    display: "inline-flex", alignItems: "center", gap: 5, fontStyle: "normal"
+                  }}>
+                    <span>🎯</span> {linkedC.name}
+                  </div>
+                )}
+
+                <p style={{ margin: "0 0 16px", fontSize: 14, color: C.textMid, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", fontStyle: "normal", wordBreak: "break-word" }}>
+                  <FormattedNoteText text={n.content} />
+                </p>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, fontStyle: "normal" }}>{fmtDate(n.updatedAt ? n.updatedAt.split("T")[0] : todayStr())}</span>
+                <button onClick={e => { e.stopPropagation(); setDeleteId(n.id); }} style={{ ...iconBtn, color: C.red, fontSize: 14 }} title="Delete">✕</button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Floating + New Note button */}
-      {notes.length > 0 && (
-        <button
-          onClick={onNew}
-          style={{
-            position: "fixed", bottom: 88, right: "max(16px, calc(50% - 284px))",
-            background: `linear-gradient(135deg, ${C.amber}, ${C.amberDark})`,
-            color: "#fff", border: "none", borderRadius: 99,
-            padding: "14px 22px", fontSize: 15, fontWeight: 800,
-            cursor: "pointer", fontFamily: font,
-            boxShadow: "0 6px 24px rgba(245,158,11,0.45)",
-            display: "flex", alignItems: "center", gap: 8, zIndex: 90,
-            transition: "transform 0.18s, box-shadow 0.18s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 10px 32px rgba(245,158,11,0.5)"; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 6px 24px rgba(245,158,11,0.45)"; }}
-        >
-          + New Note
-        </button>
-      )}
-
       {deleteId && (
         <ConfirmDialog
-          title="Delete this note?"
-          message="This action cannot be undone."
+          title="Delete note?"
+          message="This note will be permanently removed. Are you sure?"
           confirmLabel="Delete"
           onConfirm={() => { onDelete(deleteId); setDeleteId(null); }}
           onCancel={() => setDeleteId(null)}
@@ -1380,45 +1159,138 @@ function NotesScreen({ notes, onNew, onEdit, onDelete, onDuplicate }) {
   );
 }
 
+function NoteEditor({ note, initialChallengeId, challenges = [], onSave, onClose }) {
+  const [title, setTitle] = useState(note?.title || "");
+  const [content, setContent] = useState(note?.content || "");
+  const [challengeId, setChallengeId] = useState(note?.challengeId || initialChallengeId || "");
+
+  const handleSave = () => {
+    onSave({
+      id: note?.id || uid(),
+      title,
+      content,
+      challengeId: challengeId || null,
+      updatedAt: new Date().toISOString()
+    });
+    onClose();
+  };
+
+  return (
+    <Sheet onClose={onClose} maxHeight="85vh">
+      <div style={{ padding: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{note ? "Edit Note" : "New Note"}</h2>
+          <button onClick={onClose} style={iconBtn}>✕</button>
+        </div>
+
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Note title..." style={{ ...inputSt, fontSize: 18, fontWeight: 800, marginBottom: 14 }} />
+
+        {/* LINK TO CHALLENGE SELECTOR */}
+        {challenges.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: C.amberDark, marginBottom: 6, fontStyle: "normal" }}>
+              🔗 LINK TO A CHALLENGE (OPTIONAL)
+            </label>
+            <select
+              value={challengeId}
+              onChange={e => setChallengeId(e.target.value)}
+              style={{ ...inputSt, cursor: "pointer", background: "#ffffff", fontWeight: 700 }}
+            >
+              <option value="">-- No linked challenge --</option>
+              {challenges.map(c => (
+                <option key={c.id} value={c.id}>
+                  🎯 {c.name} ({c.duration} Days)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* CLICKABLE LINK PREVIEW SECTION */}
+        {content && content.match(URL_REGEX) && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: C.textMuted, marginBottom: 6, fontStyle: "normal", letterSpacing: "0.05em" }}>
+              🔗 CLICKABLE LINKS PREVIEW
+            </label>
+            <div style={{
+              background: C.bg, borderRadius: 14, border: `1.5px solid ${C.borderMid}`,
+              padding: "12px 14px", fontSize: 14, color: C.text, lineHeight: 1.6,
+              wordBreak: "break-word", maxHeight: 120, overflowY: "auto"
+            }}>
+              <FormattedNoteText text={content} />
+            </div>
+          </div>
+        )}
+
+        <textarea value={content} onChange={e => setContent(e.target.value)} rows={7} placeholder="Write your reflection or paste URLs..." style={{ ...inputSt, resize: "vertical", marginBottom: 20 }} />
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={onClose} style={ghostBtn}>Cancel</button>
+          <button onClick={handleSave} style={{ ...solidBtn, flex: 1 }}>Save Note</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function TemplatesScreen({ onUse }) {
+  return (
+    <div style={{ padding: "20px 24px 32px" }}>
+      <p style={{ margin: "0 0 20px", fontSize: 14, color: C.textMuted, fontStyle: "normal" }}>Choose a pre-built challenge template to quickly start tracking.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+        {TEMPLATES.map((t, idx) => (
+          <div key={idx} style={{ background: C.bg, borderRadius: 18, padding: "18px", border: `1px solid ${C.borderMid}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Pill>{t.duration} Days</Pill>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.amberDark, fontStyle: "normal" }}>{t.habits.length} habits</span>
+            </div>
+            <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: C.text, fontStyle: "normal" }}>{t.name}</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: C.textMuted, lineHeight: 1.5, fontStyle: "normal" }}>{t.description}</p>
+            <button onClick={() => onUse(t)} style={{ ...solidBtn, width: "100%", padding: "10px", fontSize: 13, fontWeight: 700 }}>Use Template</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────────
    SHARED BUTTON STYLES
 ───────────────────────────────────────────── */
 const solidBtn = {
-  background: C.amber, color: "#fff", border: "none", borderRadius: 14, padding: "12px 20px",
-  fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: font, transition: "all 0.18s",
-  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+  background: C.amber, color: "#ffffff", border: "none", borderRadius: 14, padding: "12px 20px",
+  fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: font, transition: "all 0.18s ease",
+  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, fontStyle: "normal",
 };
 const ghostBtn = {
   background: "transparent", color: C.textMid, border: `1.5px solid ${C.borderMid}`,
-  borderRadius: 14, padding: "11px 20px", fontWeight: 600, fontSize: 14, cursor: "pointer",
-  fontFamily: font, transition: "all 0.18s", display: "inline-flex", alignItems: "center",
-  justifyContent: "center",
+  borderRadius: 14, padding: "11px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer",
+  fontFamily: font, transition: "all 0.18s ease", display: "inline-flex", alignItems: "center",
+  justifyContent: "center", fontStyle: "normal",
 };
 const iconBtn = {
   background: "transparent", border: "none", cursor: "pointer", color: C.textMuted,
   fontSize: 16, padding: 6, borderRadius: 8, display: "flex", alignItems: "center",
-  justifyContent: "center", fontFamily: font, transition: "background 0.15s",
+  justifyContent: "center", fontFamily: font, transition: "background 0.15s", fontStyle: "normal",
 };
 const inputSt = {
   width: "100%", padding: "13px 14px", borderRadius: 13, border: `1.5px solid ${C.borderMid}`,
-  fontSize: 15, color: C.text, background: "#fff", fontFamily: font, outline: "none",
-  boxSizing: "border-box", marginBottom: 0, transition: "border-color 0.15s",
+  fontSize: 15, color: C.text, background: "#ffffff", fontFamily: font, outline: "none",
+  boxSizing: "border-box", marginBottom: 0, transition: "border-color 0.15s", fontStyle: "normal",
 };
 
 /* ─────────────────────────────────────────────
-   ROOT APP
+   ROOT APP CONTAINER
 ───────────────────────────────────────────── */
-export default function StreakUp() {
+export default function StreakUp({ onReturnToLanding }) {
   const [challenges, setChallenges] = useState(() => LS.get("su2_challenges", []));
   const [allRecords, setAllRecords] = useState(() => LS.get("su2_records", {}));
   const [allHabitRecords, setAllHabitRecords] = useState(() => LS.get("su2_habit_records", {}));
-  // records[challengeId][dateStr] = "completed" | "skipped"
-  // habitRecords[challengeId][dateStr] = { [habitName]: boolean }
 
   const [notes, setNotes] = useState(() => LS.get("su2_notes", []));
-  const [editingNote, setEditingNote] = useState(null); // null | { note | "__new__" }
+  const [editingNote, setEditingNote] = useState(null);
 
-  const [tab, setTab] = useState("today"); // today | challenges | stats | notes
+  const [tab, setTab] = useState("today");
   const [detailId, setDetailId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editChallenge, setEditChallenge] = useState(null);
@@ -1430,7 +1302,6 @@ export default function StreakUp() {
   useEffect(() => { LS.set("su2_habit_records", allHabitRecords); }, [allHabitRecords]);
   useEffect(() => { LS.set("su2_notes", notes); }, [notes]);
 
-  // Startup dedup: remove notes with identical title + content + createdAt
   useEffect(() => {
     setNotes(ns => {
       const seen = new Set();
@@ -1525,7 +1396,6 @@ export default function StreakUp() {
     { id: "notes", label: "Notes", emoji: "📝" },
   ];
 
-  // Active challenge count for badge on Today tab
   const td = todayStr();
   const pendingToday = challenges.filter(c => {
     const end = addDays(c.startDate, c.duration - 1);
@@ -1534,45 +1404,83 @@ export default function StreakUp() {
   }).length;
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: font, maxWidth: 600, margin: "0 auto" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: ${C.bg}; }
-        input:focus, textarea:focus { border-color: ${C.amber} !important; box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important; }
-        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: ${C.amberBorder}; border-radius: 99px; }
-      `}</style>
+    <div className="tracker-app-shell">
+      {/* HEADER BAR (FULL VIEWPORT WIDTH) */}
+      <header className="tracker-header">
+        <div className="tracker-header-inner">
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              onClick={onReturnToLanding}
+              style={{ cursor: onReturnToLanding ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 8 }}
+              title="Return to Landing Page"
+              data-testid="brand-logo-return-landing"
+            >
+              {onReturnToLanding && (
+                <span
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: "#ffffff",
+                    border: "1.5px solid rgba(26, 60, 48, 0.16)",
+                    color: C.amber,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 16,
+                    fontWeight: 800,
+                    transition: "all 0.15s ease",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)"
+                  }}
+                  title="Return to Landing Page"
+                >
+                  ←
+                </span>
+              )}
+              <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", color: C.amber, fontStyle: "normal" }}>
+                StreakUp
+              </span>
+            </div>
+          </div>
 
-      {/* Top bar */}
-      <div style={{
-        position: "sticky", top: 0, zIndex: 100, padding: "14px 20px 12px",
-        background: "rgba(250,250,247,0.92)", backdropFilter: "blur(16px)",
-        borderBottom: `1px solid ${C.border}`,
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <div>
-          <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", background: `linear-gradient(135deg, ${C.amber}, ${C.amberDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            StreakUp
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {tab === "notes" ? (
-            <button onClick={openNewNote} style={{ ...solidBtn, padding: "8px 16px", fontSize: 13, borderRadius: 11 }}>+ New Note</button>
-          ) : (
-            <>
-              <button onClick={() => { setShowTemplates(true); }} style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, borderRadius: 11 }}>Templates</button>
-              <button onClick={openCreate} style={{ ...solidBtn, padding: "8px 16px", fontSize: 13, borderRadius: 11 }}>+ New</button>
-            </>
-          )}
-        </div>
-      </div>
+          {/* DESKTOP CENTER NAVIGATION TABS */}
+          <nav className="tracker-desktop-nav" aria-label="Tracker Navigation">
+            {navTabs.map(n => {
+              const active = tab === n.id && !detailId;
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => { setTab(n.id); setDetailId(null); }}
+                  className={`tracker-desktop-nav-tab${active ? " is-active" : ""}`}
+                >
+                  <span>{n.emoji}</span>
+                  <span>{n.label}</span>
+                  {n.id === "today" && pendingToday > 0 && (
+                    <span style={{ background: C.red, color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 99, padding: "1px 6px", minWidth: 16, textAlign: "center" }}>
+                      {pendingToday}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-      {/* Main content */}
-      <div style={{ paddingTop: 16, animation: "fadeIn 0.2s ease" }}>
+          {/* DESKTOP RIGHT ACTIONS */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {tab === "notes" ? (
+              <button onClick={openNewNote} style={{ ...solidBtn, padding: "8px 16px", fontSize: 13, borderRadius: 12 }}>+ New Note</button>
+            ) : (
+              <>
+                <button onClick={() => setShowTemplates(true)} style={{ ...ghostBtn, padding: "8px 14px", fontSize: 13, borderRadius: 12 }}>Templates</button>
+                <button onClick={openCreate} style={{ ...solidBtn, padding: "8px 16px", fontSize: 13, borderRadius: 12 }}>+ New Challenge</button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN DESKTOP / TABLET CONTENT CONTAINER */}
+      <main className="tracker-main-container">
         {detailId && detailChallenge ? (
           <DetailScreen
             challenge={detailChallenge}
@@ -1584,7 +1492,14 @@ export default function StreakUp() {
             onDelete={() => deleteChallenge(detailId)}
           />
         ) : tab === "today" ? (
-          <TodayScreen challenges={challenges} allRecords={allRecords} onComplete={completeDay} onSkip={skipDay} onCreateChallenge={openCreate} />
+          <TodayScreen
+            challenges={challenges}
+            allRecords={allRecords}
+            onComplete={completeDay}
+            onSkip={skipDay}
+            onCreateChallenge={openCreate}
+            onShowTemplates={() => setShowTemplates(true)}
+          />
         ) : tab === "challenges" ? (
           <ChallengesScreen
             challenges={challenges}
@@ -1594,10 +1509,12 @@ export default function StreakUp() {
             onDuplicate={duplicateChallenge}
             onDelete={deleteChallenge}
             onCreate={openCreate}
+            onShowTemplates={() => setShowTemplates(true)}
           />
         ) : tab === "notes" ? (
           <NotesScreen
             notes={notes}
+            challenges={challenges}
             onNew={openNewNote}
             onEdit={openEditNote}
             onDelete={deleteNote}
@@ -1606,12 +1523,12 @@ export default function StreakUp() {
         ) : (
           <StatsScreen challenges={challenges} allRecords={allRecords} />
         )}
-      </div>
+      </main>
 
-      {/* Bottom nav */}
-      <div style={{
-        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 600,
-        background: "rgba(255,255,255,0.94)", backdropFilter: "blur(16px)",
+      {/* MOBILE BOTTOM NAVIGATION (Hidden on Desktop & Tablet) */}
+      <div className="tracker-mobile-bottom-nav" style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, width: "100%",
+        background: "rgba(255,255,255,0.96)", backdropFilter: "blur(16px)",
         borderTop: `1px solid ${C.border}`, zIndex: 100,
         padding: "8px 0 max(12px, env(safe-area-inset-bottom, 12px))",
         display: detailId ? "none" : "flex",
@@ -1623,8 +1540,8 @@ export default function StreakUp() {
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: "none", border: "none", cursor: "pointer", padding: "4px 0", position: "relative",
             }}>
-              <span style={{ fontSize: 22, lineHeight: 1, filter: active ? "none" : "grayscale(80%) opacity(60%)" }}>{n.emoji}</span>
-              <span style={{ fontSize: 11, fontWeight: active ? 800 : 500, color: active ? C.amber : C.textMuted, fontFamily: font }}>{n.label}</span>
+              <span style={{ fontSize: 20, lineHeight: 1, filter: active ? "none" : "grayscale(80%) opacity(60%)" }}>{n.emoji}</span>
+              <span style={{ fontSize: 11, fontWeight: active ? 800 : 500, color: active ? C.amber : C.textMuted, fontFamily: font, fontStyle: "normal" }}>{n.label}</span>
               {n.id === "today" && pendingToday > 0 && (
                 <span style={{ position: "absolute", top: 0, right: "calc(50% - 18px)", background: C.red, color: "#fff", fontSize: 9, fontWeight: 800, borderRadius: 99, padding: "1px 5px", minWidth: 14, textAlign: "center" }}>
                   {pendingToday}
@@ -1635,16 +1552,17 @@ export default function StreakUp() {
         })}
       </div>
 
-      {/* Note Editor overlay */}
+      {/* MODALS */}
       {editingNote !== null && (
         <NoteEditor
-          note={editingNote === "__new__" ? null : editingNote}
+          note={typeof editingNote === "object" ? editingNote : null}
+          initialChallengeId={typeof editingNote === "string" && editingNote !== "__new__" ? editingNote : null}
+          challenges={challenges}
           onSave={saveNote}
           onClose={() => setEditingNote(null)}
         />
       )}
 
-      {/* Modals */}
       {showForm && (
         <ChallengeForm
           initial={editChallenge || (templateSeed ? { ...templateSeed, startDate: todayStr() } : null)}
@@ -1655,9 +1573,9 @@ export default function StreakUp() {
 
       {showTemplates && (
         <Sheet onClose={() => setShowTemplates(false)} maxHeight="92vh">
-          <div style={{ padding: "20px 20px 0" }}>
+          <div style={{ padding: "24px 24px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>Templates</h2>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text, fontStyle: "normal" }}>Challenge Templates</h2>
               <button onClick={() => setShowTemplates(false)} style={iconBtn}>✕</button>
             </div>
           </div>

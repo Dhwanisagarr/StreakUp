@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pnpm --filter @workspace/streakup run build",
+  "outputDirectory": "artifacts/streakup/dist/public",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
